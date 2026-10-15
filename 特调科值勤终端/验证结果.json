@@ -1,0 +1,169 @@
+{
+  "release": "2.2.9",
+  "date": "2026-10-14",
+  "javascript_syntax_files": 38,
+  "unit_and_supervisor_tests": {
+    "passed": 53,
+    "failed": 0
+  },
+  "powershell_syntax": "passed",
+  "ui_layout": "unchanged from previously previewed release; version title updated",
+  "native_initialization_regressions": "2 passed against Maa Node 5.13.1; window enumeration stubbed; no game actions",
+  "external_recruit_replay": {
+    "passed": true,
+    "engine": "v5.13.1",
+    "provider": "CPU",
+    "gameInteraction": false,
+    "externalLabel": {
+      "box": [
+        80,
+        278,
+        86,
+        28
+      ],
+      "score": 0.997933,
+      "text": "外部招募"
+    },
+    "occupied": 4,
+    "nonRecruitPageRejected": true,
+    "scope": "Actual OCR and home icon template on supplied upper-sidebar failure screenshot; scroll transitions covered by simulated tests, not live game"
+  },
+  "external_sidebar_regressions": "8 passed including upper/lower layouts, scroll discovery, reverse search, bounded absence, cancellation, single click, dynamic slot ROI",
+  "window_preparation_regressions": "6 passed: real 16-second startup, timeout, stop, exit diagnostics, spawn failure, Windows API compilation without game access",
+  "failure_227_replay_inherited_from_227": {
+    "passed": true,
+    "engine": "v5.13.1",
+    "provider": "CPU",
+    "gameInteraction": false,
+    "warehouse": 71,
+    "remainingSelected": 2,
+    "originalTotal": 79,
+    "decomposed": 15,
+    "doubleFrameInventoryConfirmation": true,
+    "alternateCorridorResult": true,
+    "negativeCrossPageRecognition": true,
+    "limits": "Actual CPU OCR on supplied screenshots; no live game actions or hardware validation"
+  },
+  "office_failure_replay_inherited_from_226": {
+    "passed": true,
+    "engine": "v5.13.1",
+    "provider": "CPU",
+    "gameInteraction": false,
+    "scope": "native OCR/template recognition on user archive and office screenshots; complete finishCard replay with simulated 6s OCR latency; simulated recognized back navigation; office exit icon verified; exit-confirmation dialog not replayed",
+    "archiveCount": 9,
+    "simulatedConfirmationMs": 39200,
+    "clicks": 1,
+    "captures": 11
+  },
+  "windows_status_regressions": "5 passed including real sharing violation recovery and 250 concurrent updates; no game interaction",
+  "failure_screenshot_replay_inherited_from_224": {
+    "passed": true,
+    "engine": "v5.13.1",
+    "provider": "CPU",
+    "source": "user failure and home screenshots",
+    "gameInteraction": false,
+    "scope": "actual verifyInput flow with native OCR/template recognition and simulated clicks; shop/home negative checks",
+    "captures": 11,
+    "clicks": [
+      {
+        "x": 916,
+        "y": 542,
+        "next": "shop"
+      },
+      {
+        "x": 319,
+        "y": 35,
+        "next": "home"
+      }
+    ],
+    "operations": [
+      {
+        "label": "OCR 识别",
+        "ms": 406
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 131
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 128
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 124
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 26
+      },
+      {
+        "label": "后台点击",
+        "ms": 0
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 24
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 135
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 27
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 137
+      },
+      {
+        "label": "模板识别",
+        "ms": 24
+      },
+      {
+        "label": "后台点击",
+        "ms": 0
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 124
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 123
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 123
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 124
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 186
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 26
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 134
+      },
+      {
+        "label": "OCR 识别",
+        "ms": 25
+      }
+    ]
+  },
+  "limits": [
+    "未在对方电脑或故障硬件上验证",
+    "未运行真实游戏的完整自动化流程",
+    "离线耗时不包括真实截图与诊断写盘，不能视为整轮任务加速比"
+  ],
+  "asset_baseline": "2.2.7 local release",
+  "unchanged_runtime_and_asset_files_verified": 97
+}

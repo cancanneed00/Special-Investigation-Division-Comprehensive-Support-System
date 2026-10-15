@@ -1,0 +1,11 @@
+本程序包含以下未经修改的第三方运行组件：
+
+1. Node.js 24.16.0 (Windows x64)
+   项目：https://nodejs.org/
+   源码：https://github.com/nodejs/node/tree/v24.16.0
+   许可：见 Node.js-24.16.0-LICENSE.txt
+
+2. MaaFramework / maa-node 5.13.1 (Windows x64)
+   项目与对应源代码：https://github.com/MaaXYZ/MaaFramework
+   许可：GNU Lesser General Public License v3，见 MaaFramework-LGPL-3.0.md
+   MaaFramework 以独立动态库/Node 原生模块形式随包分发，可由兼容版本替换。

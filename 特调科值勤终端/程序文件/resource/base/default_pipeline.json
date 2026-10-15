@@ -1,0 +1,15 @@
+{
+  "Default": {
+    "rate_limit": 250,
+    "pre_delay": 100,
+    "timeout": 15000
+  },
+  "OCR": {
+    "recognition": "OCR",
+    "order_by": "Expected"
+  },
+  "Click": {
+    "action": "Click",
+    "target": true
+  }
+}

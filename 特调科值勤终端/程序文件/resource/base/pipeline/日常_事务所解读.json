@@ -1,0 +1,1464 @@
+{
+  "日常_事务所解读": {
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_确认离开对号",
+      "事务所_结果页_第一",
+      "事务所_候选页_第一",
+      "事务所_追加弹窗",
+      "事务所_档案页_第一",
+      "事务所_事务所首页_第一",
+      "事务所_状态_主界面"
+    ],
+    "timeout": 12000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_状态_主界面": {
+    "recognition": "OCR",
+    "expected": "^事务所$",
+    "roi": [
+      0,
+      0,
+      1280,
+      720
+    ],
+    "action": "Click",
+    "max_hit": 2,
+    "post_delay": 2800,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_等待进入"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_等待进入": {
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_事务所首页_第一"
+    ],
+    "timeout": 25000,
+    "on_error": [
+      "事务所_状态_主界面",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_状态_冥想日志": {
+    "recognition": "OCR",
+    "expected": "^冥想日志$",
+    "roi": [
+      300,
+      0,
+      680,
+      180
+    ],
+    "action": "Click",
+    "target": [
+      1120,
+      680
+    ],
+    "max_hit": 40,
+    "post_delay": 650,
+    "next": [
+      "事务所_冥想日志消失一"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_冥想日志关闭确认": {
+    "recognition": "OCR",
+    "expected": "^解读$",
+    "roi": [
+      1040,
+      520,
+      240,
+      200
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_事务所首页_第一"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_状态_冥想日志",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_事务所首页_第一": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第一"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第一",
+      "事务所_事务所首页_第一_重试2",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  },
+  "事务所_档案页_第一": {
+    "recognition": "OCR",
+    "expected": "^(解读|仪式)$",
+    "roi": [
+      0,
+      60,
+      300,
+      360
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案为空_结束",
+      "事务所_选择档案_第一"
+    ],
+    "timeout": 12000,
+    "on_error": [
+      "事务所_事务所首页_第一",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_档案为空_结束": {
+    "recognition": "OCR",
+    "expected": "(^|[^0-9])0/12($|[^0-9])",
+    "roi": [
+      0,
+      430,
+      330,
+      180
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案补充路由"
+    ],
+    "timeout": 2000
+  },
+  "事务所_选择档案_第一": {
+    "recognition": "TemplateMatch",
+    "roi": [
+      280,
+      50,
+      1000,
+      500
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "action": "Click",
+    "post_delay": 800,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_筛选第一产物"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_状态_冥想日志",
+      "事务所_档案为空_结束",
+      "事务所_识别失败"
+    ],
+    "template": "事务所_档案卡角标.png",
+    "threshold": 0.78
+  },
+  "事务所_筛选第一产物": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_第一产物.png",
+    "threshold": 0.72,
+    "roi": [
+      1090,
+      130,
+      190,
+      470
+    ],
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_候选页_第一"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_候选页_第一": {
+    "recognition": "OCR",
+    "expected": "^开始仪式$",
+    "roi": [
+      40,
+      480,
+      1200,
+      130
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_第一产物缺货",
+      "事务所_第一_追加奖励候选1",
+      "事务所_第一_追加奖励候选2",
+      "事务所_第一_追加奖励候选3",
+      "事务所_第一_追加奖励候选4",
+      "事务所_第一_普通候选"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_筛选第一产物",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_第一产物缺货": {
+    "recognition": "OCR",
+    "expected": "^缺货$",
+    "roi": [
+      40,
+      380,
+      1160,
+      170
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_筛选第二产物"
+    ]
+  },
+  "事务所_第一_追加奖励候选1": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          55,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          55,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          55,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第一"
+    ]
+  },
+  "事务所_第一_追加奖励候选2": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          350,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          350,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          350,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第一"
+    ]
+  },
+  "事务所_第一_追加奖励候选3": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          645,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          645,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          645,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第一"
+    ]
+  },
+  "事务所_第一_追加奖励候选4": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          940,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          940,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          940,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第一"
+    ]
+  },
+  "事务所_第一_普通候选": {
+    "recognition": "OCR",
+    "expected": "^开始仪式$",
+    "roi": [
+      40,
+      500,
+      1200,
+      100
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第一"
+    ]
+  },
+  "事务所_结果页_第一": {
+    "recognition": "OCR",
+    "expected": "请点击任意空白处关闭界面",
+    "roi": [
+      360,
+      590,
+      580,
+      120
+    ],
+    "action": "Click",
+    "max_hit": 16,
+    "pre_delay": 800,
+    "post_delay": 900,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案为空_结束",
+      "事务所_第一结果关闭确认"
+    ],
+    "timeout": 18000,
+    "on_error": [
+      "事务所_候选页_第一",
+      "事务所_识别失败"
+    ],
+    "focus": {
+      "Node.Action.Starting": "事务所解读结果：点击底部提示区域关闭，并确认已返回档案页。"
+    }
+  },
+  "事务所_第一结果关闭确认": {
+    "recognition": "OCR",
+    "expected": "^(解读|仪式)$",
+    "roi": [
+      0,
+      60,
+      300,
+      360
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_解读计数路由"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_结果页_第一",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_解读计数路由": {
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_测试继续计数",
+      "事务所_测试达到上限"
+    ],
+    "timeout": 20000,
+    "on_error": [
+      "事务所_状态_冥想日志",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_测试继续计数": {
+    "max_hit": 31,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "日常_事务所解读"
+    ]
+  },
+  "事务所_测试达到上限": {
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页返回首页"
+    ],
+    "timeout": 20000,
+    "on_error": [
+      "事务所_状态_冥想日志",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_筛选第二产物": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_第二产物.png",
+    "threshold": 0.72,
+    "roi": [
+      1090,
+      130,
+      190,
+      470
+    ],
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_候选页_第二"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_候选页_第二": {
+    "recognition": "OCR",
+    "expected": "^开始仪式$",
+    "roi": [
+      40,
+      480,
+      1200,
+      130
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_第二产物缺货",
+      "事务所_第二_追加奖励候选1",
+      "事务所_第二_追加奖励候选2",
+      "事务所_第二_追加奖励候选3",
+      "事务所_第二_追加奖励候选4",
+      "事务所_第二_普通候选"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_筛选第二产物",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_第二产物缺货": {
+    "recognition": "OCR",
+    "expected": "^缺货$",
+    "roi": [
+      40,
+      380,
+      1160,
+      170
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_候选页返回档案"
+    ]
+  },
+  "事务所_第二_追加奖励候选1": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          55,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          55,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          55,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第二"
+    ]
+  },
+  "事务所_第二_追加奖励候选2": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          350,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          350,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          350,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第二"
+    ]
+  },
+  "事务所_第二_追加奖励候选3": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          645,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          645,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          645,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第二"
+    ]
+  },
+  "事务所_第二_追加奖励候选4": {
+    "recognition": "And",
+    "all_of": [
+      {
+        "recognition": "OCR",
+        "expected": "^开始仪式$",
+        "roi": [
+          940,
+          500,
+          300,
+          100
+        ]
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^阶层2解锁$",
+        "roi": [
+          940,
+          420,
+          300,
+          115
+        ],
+        "inverse": true
+      },
+      {
+        "recognition": "OCR",
+        "expected": "^缺货$",
+        "roi": [
+          940,
+          360,
+          300,
+          190
+        ],
+        "inverse": true
+      }
+    ],
+    "box_index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第二"
+    ]
+  },
+  "事务所_第二_普通候选": {
+    "recognition": "OCR",
+    "expected": "^开始仪式$",
+    "roi": [
+      40,
+      500,
+      1200,
+      100
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_结果页_第二"
+    ]
+  },
+  "事务所_结果页_第二": {
+    "recognition": "OCR",
+    "expected": "请点击任意空白处关闭界面",
+    "roi": [
+      360,
+      590,
+      580,
+      120
+    ],
+    "action": "Click",
+    "max_hit": 16,
+    "pre_delay": 800,
+    "post_delay": 900,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案为空_结束",
+      "事务所_第二结果关闭确认"
+    ],
+    "timeout": 18000,
+    "on_error": [
+      "事务所_候选页_第二",
+      "事务所_识别失败"
+    ],
+    "focus": {
+      "Node.Action.Starting": "事务所解读结果：点击底部提示区域关闭，并确认已返回档案页。"
+    }
+  },
+  "事务所_第二结果关闭确认": {
+    "recognition": "OCR",
+    "expected": "^(解读|仪式)$",
+    "roi": [
+      0,
+      60,
+      300,
+      360
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_解读计数路由"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_结果页_第二",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_事务所首页_第二": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第二"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第二",
+      "事务所_事务所首页_第二_重试2",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  },
+  "事务所_档案页_第二": {
+    "recognition": "OCR",
+    "expected": "^(解读|仪式)$",
+    "roi": [
+      0,
+      60,
+      300,
+      360
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案为空_结束",
+      "事务所_选择档案_第二"
+    ],
+    "timeout": 12000,
+    "on_error": [
+      "事务所_事务所首页_第二",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_选择档案_第二": {
+    "recognition": "TemplateMatch",
+    "roi": [
+      280,
+      50,
+      1000,
+      500
+    ],
+    "order_by": "Horizontal",
+    "index": 0,
+    "action": "Click",
+    "post_delay": 800,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_筛选第二产物"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_状态_冥想日志",
+      "事务所_档案为空_结束",
+      "事务所_识别失败"
+    ],
+    "template": "事务所_档案卡角标.png",
+    "threshold": 0.78
+  },
+  "事务所_候选页返回档案": {
+    "recognition": "TemplateMatch",
+    "template": "商店_左上返回箭头.png",
+    "threshold": 0.78,
+    "roi": [
+      0,
+      0,
+      250,
+      110
+    ],
+    "action": "Click",
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页返回首页"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_档案页返回首页": {
+    "recognition": "TemplateMatch",
+    "template": "商店_左上返回箭头.png",
+    "threshold": 0.78,
+    "roi": [
+      0,
+      0,
+      250,
+      110
+    ],
+    "action": "Click",
+    "max_hit": 4,
+    "post_delay": 1200,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案返回确认"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_档案返回确认": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_退出图标.png",
+    "threshold": 0.72,
+    "roi": [
+      0,
+      0,
+      220,
+      110
+    ],
+    "pre_delay": 700,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_退出到主界面"
+    ],
+    "timeout": 5000,
+    "on_error": [
+      "事务所_档案页返回首页",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_退出到主界面": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_退出图标.png",
+    "threshold": 0.76,
+    "roi": [
+      0,
+      0,
+      220,
+      100
+    ],
+    "action": "Click",
+    "max_hit": 2,
+    "pre_delay": 500,
+    "post_delay": 1000,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_确认离开对号"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_确认离开对号": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_离开确认对号.png",
+    "threshold": 0.82,
+    "roi": [
+      500,
+      280,
+      400,
+      220
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "pre_delay": 700,
+    "post_delay": 1400,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_完成"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_退出到主界面",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_完成": {
+    "recognition": "OCR",
+    "expected": "^作战$",
+    "roi": [
+      0,
+      0,
+      1280,
+      720
+    ],
+    "timeout": 5000,
+    "on_error": [
+      "事务所_确认离开对号",
+      "事务所_退出到主界面",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_识别失败": {
+    "action": "StopTask",
+    "focus": {
+      "Node.Action.Starting": "事务所解读：当前界面无法确认，已停止以避免误点。请保留日志和最后画面。"
+    }
+  },
+  "事务所_档案补充路由": {
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案补充仅一次",
+      "事务所_档案页返回首页"
+    ],
+    "timeout": 12000,
+    "on_error": [
+      "事务所_档案页返回首页",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_档案补充仅一次": {
+    "max_hit": 1,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_点击追加档案残片"
+    ]
+  },
+  "事务所_点击追加档案残片": {
+    "recognition": "OCR",
+    "expected": "^追加档案残片$",
+    "roi": [
+      800,
+      560,
+      400,
+      150
+    ],
+    "action": "Click",
+    "post_delay": 600,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_追加弹窗"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_档案页返回首页",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_追加弹窗": {
+    "recognition": "OCR",
+    "expected": "^追加档案残片$",
+    "roi": [
+      430,
+      120,
+      430,
+      120
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_追加余额不足",
+      "事务所_追加可用",
+      "事务所_追加不足取消"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_档案为空_结束",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_追加余额不足": {
+    "recognition": "OCR",
+    "expected": "^-\\d+$",
+    "roi": [
+      700,
+      190,
+      190,
+      130
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_追加不足取消"
+    ],
+    "timeout": 2500
+  },
+  "事务所_追加可用": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_追加按钮可用.png",
+    "threshold": 0.9,
+    "roi": [
+      620,
+      430,
+      370,
+      160
+    ],
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_点击追加加号"
+    ],
+    "timeout": 2500
+  },
+  "事务所_点击追加加号": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_追加加号.png",
+    "threshold": 0.78,
+    "roi": [
+      640,
+      330,
+      300,
+      160
+    ],
+    "action": "Click",
+    "post_delay": 400,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_点击追加确认"
+    ],
+    "timeout": 5000,
+    "on_error": [
+      "事务所_点击追加确认",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_点击追加确认": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_追加按钮可用.png",
+    "threshold": 0.78,
+    "roi": [
+      620,
+      430,
+      370,
+      160
+    ],
+    "action": "Click",
+    "post_delay": 1000,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第一"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_追加不足取消",
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_追加不足取消": {
+    "recognition": "OCR",
+    "expected": "^取消$",
+    "roi": [
+      300,
+      430,
+      380,
+      160
+    ],
+    "action": "Click",
+    "post_delay": 700,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页返回首页"
+    ],
+    "timeout": 5000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "通用_获取物资": {
+    "recognition": "OCR",
+    "expected": ".*获取物资.*",
+    "roi": [
+      200,
+      20,
+      880,
+      250
+    ],
+    "next": [
+      "通用_点击奖励对号"
+    ],
+    "timeout": 6000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "通用_点击奖励对号": {
+    "recognition": "TemplateMatch",
+    "template": [
+      "奖励对号_核心_90.png",
+      "奖励对号_核心_100.png",
+      "奖励对号_核心_110.png",
+      "通用_奖励对号.png",
+      "领取确认_对号.png",
+      "领取确认_对号_可见上半部.png"
+    ],
+    "threshold": 0.8,
+    "roi": [
+      200,
+      430,
+      880,
+      290
+    ],
+    "action": "Click",
+    "post_delay": 600,
+    "next": [
+      "通用_奖励消失一"
+    ],
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "通用_奖励消失一": {
+    "recognition": "OCR",
+    "expected": ".*获取物资.*",
+    "roi": [
+      200,
+      20,
+      880,
+      250
+    ],
+    "inverse": true,
+    "post_delay": 400,
+    "next": [
+      "通用_奖励消失二"
+    ],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "通用_奖励消失二": {
+    "recognition": "OCR",
+    "expected": ".*获取物资.*",
+    "roi": [
+      200,
+      20,
+      880,
+      250
+    ],
+    "inverse": true,
+    "post_delay": 400,
+    "next": [],
+    "timeout": 10000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_冥想日志消失一": {
+    "recognition": "OCR",
+    "expected": "^冥想日志$",
+    "roi": [
+      300,
+      0,
+      680,
+      180
+    ],
+    "inverse": true,
+    "post_delay": 350,
+    "next": [
+      "事务所_冥想日志消失二"
+    ],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_冥想日志消失二": {
+    "recognition": "OCR",
+    "expected": "^冥想日志$",
+    "roi": [
+      300,
+      0,
+      680,
+      180
+    ],
+    "inverse": true,
+    "post_delay": 350,
+    "next": [],
+    "timeout": 8000,
+    "on_error": [
+      "事务所_识别失败"
+    ]
+  },
+  "事务所_事务所首页_第一_重试2": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第一"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第一",
+      "事务所_事务所首页_第一_重试3",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  },
+  "事务所_事务所首页_第一_重试3": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第一"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第一",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  },
+  "事务所_事务所首页_第二_重试2": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第二"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第二",
+      "事务所_事务所首页_第二_重试3",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  },
+  "事务所_事务所首页_第二_重试3": {
+    "recognition": "TemplateMatch",
+    "template": "事务所_解读按钮.png",
+    "threshold": 0.82,
+    "roi": [
+      1080,
+      560,
+      200,
+      160
+    ],
+    "action": "Click",
+    "max_hit": 3,
+    "post_delay": 500,
+    "next": [
+      "[JumpBack]事务所_状态_冥想日志",
+      "[JumpBack]通用_获取物资",
+      "事务所_档案页_第二"
+    ],
+    "timeout": 4000,
+    "on_error": [
+      "事务所_档案页_第二",
+      "事务所_识别失败"
+    ],
+    "target_offset": [
+      30,
+      25,
+      -60,
+      -50
+    ]
+  }
+}
