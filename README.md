@@ -26,6 +26,6 @@
 
 ## 下载与验证
 
-[GitHub Releases](https://github.com/cancanneed00/Special-Investigation-Division-Operations-Terminal/releases)
+[GitHub Releases](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases)
 
 本次整理后验证：值勤终端 51 项流程测试通过，补齐本地 Maa Node 依赖后 2 项原生初始化测试通过；心锚终端历史合并与规则模拟共 12 项测试通过。未执行真实游戏完整流程。
