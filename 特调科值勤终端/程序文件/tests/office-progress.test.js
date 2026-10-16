@@ -6,7 +6,7 @@ const {observe,recoveryBudget}=require('../lib/performance');
 function fixture(){
  let time=0,frames=0,blanks=0;
  const s={slowScale:1,performance:{pollMs:150,operationTimeoutMs:60000},check(){}};
- const v=new Vision(s);v.saveDiagnostic=()=>{};
+ const v=new Vision(s);v.saveDiagnostic=()=>{};v.loading=async()=>false;
  v.loading=async()=>{frames++;time+=1000;return false;};v.reward=async()=>{time+=2000;return false;};
  v.blank=async()=>{blanks++;};
  const office={v,archive:async()=>{time+=8000;return true;},firstCard:async()=>{time+=8000;return true;},empty:async()=>false,candidatePage:async()=>false};
@@ -60,7 +60,7 @@ test('office recovery refuses unknown pages and pending ritual candidates',async
 });
 test('blankUntil uses two confirmed frames and does not click an absent dialog',async()=>{
  const {Flow}=require('../lib/flow');const v=new Flow({performance:{pollMs:150},slowScale:1,check(){}});
- v.saveDiagnostic=()=>{};v.reward=async()=>null;v.blank=async()=>assert.fail('must not click');
+ v.saveDiagnostic=()=>{};v.loading=async()=>false;v.reward=async()=>null;v.blank=async()=>assert.fail('must not click');
  let confirmations=0;
  await v.blankUntil(async()=>false,async()=>{confirmations++;return true;},'closed');
  assert.equal(confirmations,2);

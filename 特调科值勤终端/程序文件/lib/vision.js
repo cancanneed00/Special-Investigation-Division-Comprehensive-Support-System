@@ -46,12 +46,13 @@ class Vision {
     this.pendingRecognition={type,param,startedAt:new Date().toISOString()};
     this.saveDiagnostic();
     const started=Date.now();
-    const reco=await this.s.operation(type==='OCR'?'OCR 识别':'模板识别',async()=>{
+    let reco;
+    try { reco=await this.s.operation(type==='OCR'?'OCR 识别':'模板识别',async()=>{
       const job = await this.s.tasker.post_recognition(type, param, image).wait();
       const result = await job.get();
       const node = result?.nodes?.[0] ? this.s.tasker.node_detail(result.nodes[0]) : null;
       return node?.reco || null;
-    });
+    }); } catch(error){this.saveDiagnostic('识别调用失败：'+error.message);throw error;}
     this.lastRecognition={type,param,captureMs:this.captureMs,recognitionMs:Date.now()-started,requestedProvider:this.s.performance.provider,detail:reco?.detail||null};
     this.pendingRecognition=null;
     this.diagnosticHistory=this.diagnosticHistory||[];
@@ -65,20 +66,17 @@ class Vision {
     return answer;
   }
   saveDiagnostic(label) {
-    try {
-      const dir=path.join(__dirname,'..','日志记录','诊断');
-      fs.mkdirSync(dir,{recursive:true});
-      // One bounded rolling input, shared across checks of the same frame.
-      fs.writeFileSync(path.join(dir,'最近识别.json'),JSON.stringify({at:new Date().toISOString(),label,pending:this.pendingRecognition,history:this.diagnosticHistory},null,2));
-      if(this.lastImage && this.diagnosticImage!==this.lastImage) {
-        fs.writeFileSync(path.join(dir,'最近识别截图.png'),this.lastImage);
-        this.diagnosticImage=this.lastImage;
-      }
-      if(label) {
-        fs.copyFileSync(path.join(dir,'最近识别.json'),path.join(dir,'最近失败.json'));
-        if(this.lastImage)fs.writeFileSync(path.join(dir,'最近失败截图.png'),this.lastImage);
-      }
-    }catch(error){console.log('诊断记录写入失败：'+error.message);}
+    if(!this.s.diagnostics)this.s.diagnostics=new (require('./diagnostics').Diagnostics)(path.join(__dirname,'..'),{intervalMs:this.s.performance?.mode==='low'?5000:2000});
+    this.s.diagnostics.save(this,label);
+  }
+  async swipe(x1,y1,x2,y2,duration,label='后台滑动') {
+    this.s.check();
+    const [width,height]=this.size||[1280,720];
+    if(![x1,y1,x2,y2,duration].every(Number.isFinite) || Math.min(x1,x2,y1,y2)<0 || Math.max(x1,x2)>=width || Math.max(y1,y2)>=height || duration<=0)throw new Error('滑动参数无效');
+    this.invalidate();
+    const result=await this.s.operation(label,()=>this.s.controller.post_swipe(x1,y1,x2,y2,duration).wait());
+    this.s.check();if(!result.succeeded)throw new Error(label+'失败');
+    return result;
   }
   ocr(expected, roi = FULL) { return this.recognize('OCR', {expected, roi, order_by:'Vertical'}); }
   template(template, roi = FULL, threshold = 0.78) {
@@ -136,9 +134,17 @@ class Vision {
       if (attempt > 1 && await expected()) {
         return this.wait(expected, label, {timeout});
       }
-      const target = await this.wait(probe, `${label}按钮`, {stable:1});
-      if (attempt > 1 && await expected()) return this.wait(expected, label, {timeout});
-      await this.click(target, `${label}（${attempt}/${attempts}）`);
+      for(let transition=0;transition<3;transition++){
+        const target = await this.wait(probe, `${label}按钮`, {stable:1});
+        if (attempt > 1 && await expected()) return this.wait(expected, label, {timeout});
+        try{await this.click(target, `${label}（${attempt}/${attempts}）`);break;}
+        catch(error){
+          // PAGE_TRANSITION is raised only before sending a click. Retry fresh
+          // recognition, never replay a spending action after it was sent.
+          if(error.code!=='PAGE_TRANSITION'||transition===2)throw error;
+          this.invalidate();
+        }
+      }
       try {
         const result = await this.wait(expected, label, {timeout});
         console.log(`操作结果已确认：${label}`);
@@ -152,13 +158,16 @@ class Vision {
   }
   reward() { return this.ocr('.*获取物资.*', [200, 20, 880, 250]); }
   async rewardClick() {
-    if (!await this.reward()) throw new Error('未确认获取物资弹层，不点击对号');
-    const button = await this.wait(async () =>
-      await this.template(["奖励对号_核心_90.png", "奖励对号_核心_100.png", "奖励对号_核心_110.png", "通用_奖励对号.png"], [200, 430, 880, 290], 0.80) ||
-      await this.template('领取确认_对号.png', [200, 430, 880, 290], 0.78) ||
-      await this.template('领取确认_对号_可见上半部.png', [200, 430, 880, 290], 0.80),
-    '获取物资底部对号', {stable:1, timeout:6000});
-    await this.click(button, '获取物资底部对号');
+    const button = await this.wait(async()=>{
+      // This wait may be nested inside a page-confirmation frame. Refresh on
+      // every attempt so a transient animation frame cannot stay cached.
+      this.invalidate();
+      if(!await this.reward())return null;
+      return await this.template(["奖励对号_核心_90.png", "奖励对号_核心_100.png", "奖励对号_核心_110.png", "通用_奖励对号.png"], [200,430,880,290],0.80) ||
+        await this.template('领取确认_对号.png',[200,430,880,290],0.78) ||
+        await this.template('领取确认_对号_可见上半部.png',[200,430,880,290],0.80);
+    },'奖励标题和底部对号同时稳定出现',{stable:2,timeout:15000});
+    await this.click(button,'获取物资底部对号');
   }
   async dismissReward(expected, {timeout = 25000} = {}) {
     return this.wait(async()=>{

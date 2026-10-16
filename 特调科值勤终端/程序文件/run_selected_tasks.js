@@ -102,20 +102,23 @@ async function main() {
     clearTimeout(hardTimer);
     for(let i=0;i<tasks.length;i++) {
       const [id,name,script,timeout]=tasks[i];
+      const taskStarted=Date.now();
       const scale=Math.max(v.slowScale,session.peakSlowScale||1); // 固定任务预算采用已观察到的慢机倍率，避免被一次快速检查压缩。
-      session.deadline=Date.now()+timeout*scale;
+      session.setBudget(timeout,scale);
       status({state:'running',current:name,index:i+1,total:tasks.length});
       console.log(`开始：${name}`);
-      hardTimer=setTimeout(()=>{status({state:'failed',current:`${name} 原生调用超时，已停止`});process.exit(2);},timeout*scale+15000);
+      hardTimer=setInterval(()=>{session.refreshBudget();if(Date.now()>session.deadline+15000){status({state:'failed',current:`${name} 超过安全时限，已停止`});process.exit(2);}},250);
       try {
         await require('./'+script).run(session);
         await v.wait(()=>v.home(),`${name} 结束后主界面`);
+        session.metrics?.task(name,'completed',Date.now()-taskStarted);
         console.log(`完成并验证：${name}`);
       } catch(error) {
+        session.metrics?.task(name,'failed',Date.now()-taskStarted);
         console.log(`任务失败：${name} ${error.stack||error}`);
         if(fs.existsSync(path.join(ROOT,'停止请求')))throw error;
         const recoveryMs=require('./lib/performance').recoveryBudget(session);
-        session.deadline=Date.now()+recoveryMs;
+        session.setBudget(recoveryMs,1,false);
         clearTimeout(hardTimer);
         hardTimer=setTimeout(()=>{status({state:'failed',current:'恢复超时，已停止'});process.exit(2);},recoveryMs+15000);
         try{await v.capture(path.join(ROOT,`运行失败_${id}.png`));}catch(_){}
@@ -131,12 +134,13 @@ async function main() {
         } else await recover(session,{taskId:id});
         }catch(recoveryError){throw new Error(`${name}失败：${error.message}；返回主页未完成：${recoveryError.message}`,{cause:recoveryError});}
         skipped.push({task:name,reason:error.message});
-      } finally {clearTimeout(hardTimer);}
+      } finally {clearTimeout(hardTimer);session.clearBudget();}
     }
     if(skipped.length===tasks.length)throw new Error('所有选定任务均失败，未完成任何任务；请检查日志');
     status({state:skipped.length?'completed_with_skips':'completed',current:skipped.length?`结束，跳过 ${skipped.length} 项`:'全部任务完成',skipped});
   } finally {
     clearTimeout(hardTimer);
+    session.clearBudget();
     await session.close();
     cleanupLogs(ROOT);
     console.log=original;

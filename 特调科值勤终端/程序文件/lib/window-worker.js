@@ -17,11 +17,16 @@ class WindowWorker {
   });
   child.on('exit',()=>{if(this.child===child)this.fail(new Error(this.errors||'全屏辅助进程已退出'));});
  }
- request(mode,point={}){
+ request(mode,point={},{timeout=this.timeout,check=()=>{}}={}){
+  try{check();}catch(error){return Promise.reject(error);}
   if(this.pending)return Promise.reject(new Error('全屏辅助请求正在执行，禁止重叠操作'));
   this.start();const id=++this.seq;
   return new Promise((resolve,reject)=>{
-   const timer=setTimeout(()=>this.fail(new Error('全屏辅助等待超时')),this.timeout);
+   const started=Date.now();
+   const timer=setInterval(()=>{
+    try{check();}catch(error){this.fail(error);return;}
+    if(Date.now()-started>=timeout)this.fail(new Error('全屏辅助等待超时'));
+   },100);
    this.pending={id,resolve,reject,timer};
    this.child.stdin.write(JSON.stringify({id,mode,...point})+'\n');
   });

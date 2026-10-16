@@ -10,19 +10,34 @@ class Session {
     this.slowScale = this.performance.mode === 'low' ? 2 : 1;
     this.deadline = Infinity;
     this.closed = false;
+    this.metrics = new (require('./run-metrics').RunMetrics)(ROOT,this.performance);
   }
+  setBudget(baseMs,scale=1,adaptive=true) {
+    this.budget={started:Date.now(),baseMs,scale,adaptive};this.refreshBudget();
+  }
+  refreshBudget() {
+    if(!this.budget)return;
+    const b=this.budget,scale=b.adaptive?Math.min(8,Math.max(b.scale,this.peakSlowScale||1,this.slowScale||1)):b.scale;
+    const deadline=b.started+b.baseMs*scale;
+    if(deadline!==this.deadline){this.deadline=deadline;if(process.send)process.send({kind:'task-deadline',deadline});}
+  }
+  clearBudget(){this.budget=null;this.deadline=Infinity;if(process.send)process.send({kind:'task-deadline',deadline:null});}
   check() {
+    this.refreshBudget();
     if (fs.existsSync(path.join(ROOT, '停止请求'))) throw new Error('用户已停止任务');
     if (Date.now() > this.deadline) throw new Error('当前任务超过安全时限');
     if (this.closed) throw new Error('窗口会话已关闭');
   }
   async operation(label, fn, timeout = this.performance.operationTimeoutMs) {
+    if(label!=='释放识别资源')this.check();
     const start=Date.now();
     if(process.send)process.send({kind:'operation-start',label,timeout});
-    try {return await fn();}
+    let failed=true;
+    try {const result=await fn();if(label!=='释放识别资源')this.check();failed=false;return result;}
     finally {
       if(process.send)process.send({kind:'operation-end'});
       this.lastOperation={label,ms:Date.now()-start};
+      this.metrics?.record(label,this.lastOperation.ms,failed);
     }
   }
   async connect() {
@@ -63,7 +78,8 @@ class Session {
     return this;
   }
   async close() {
-    return this.operation('释放识别资源',()=>this.closeNative(),15000);
+    try{return await this.operation('释放识别资源',()=>this.closeNative(),15000);}
+    finally{this.metrics?.flush(true);}
   }
   async closeNative() {
     if (this.closed) return;

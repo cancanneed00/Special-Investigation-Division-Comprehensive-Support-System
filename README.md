@@ -4,7 +4,7 @@
 
 | 子项目 | 当前版本 | 说明 |
 | --- | --- | --- |
-| [特调科值勤终端](./特调科值勤终端/) | 2.2.10 | 日常委托、事务所与相关流程自动化 |
+| [特调科值勤终端](./特调科值勤终端/) | 2.2.13 | 日常委托、事务所与相关流程自动化 |
 | [心锚适格评定终端](./心锚适格评定终端/) | 0.6.4 | 心锚扫描、评定、历史记录与断点续扫 |
 
 ## 目录与发布
@@ -13,7 +13,7 @@
 
 源码目录不包含运行时、OCR 模型、用户配置、历史数据、日志或实测截图。直接使用请下载对应完整发布包；发布包应作为 GitHub Releases 附件上传，不放入 Git 历史。
 
-- [下载值勤终端 2.2.10 完整运行包](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases/download/duty-v2.2.10/echoes-duty-terminal-2.2.10-20261016.zip)：完整解压后运行 `特调科执勤终端.exe`。
+- [下载值勤终端 2.2.13 完整运行包](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases/download/duty-v2.2.13/echoes-duty-terminal-2.2.13-20261017.zip)：完整解压后运行 `特调科执勤终端.exe`。
 - 心锚适格评定终端完整包：`心锚适格评定终端-0.6.4.zip`
 
 ## 开发说明
@@ -28,4 +28,4 @@
 
 [GitHub Releases](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases)
 
-本次整理后验证：值勤终端 2.2.10 共 60 项自动测试通过；心锚终端历史合并与规则模拟共 12 项测试通过。未执行真实游戏完整流程。
+本次整理后验证：值勤终端 2.2.13 共 84 项自动测试通过；心锚终端历史合并与规则模拟共 12 项测试通过。未执行真实游戏完整流程。

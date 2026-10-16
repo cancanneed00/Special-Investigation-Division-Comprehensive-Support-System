@@ -18,7 +18,7 @@ $script:stopAt = $null
 
 $form = New-Object System.Windows.Forms.Form
 $form.Icon = New-Object System.Drawing.Icon((Join-Path $root 'ui-assets\app.ico'))
-$form.Text = '特调科执勤终端 2.2.10'
+$form.Text = '特调科执勤终端 2.2.13'
 $form.StartPosition = 'CenterScreen'
 $form.ClientSize = New-Object System.Drawing.Size(820, 790)
 $form.MinimumSize = New-Object System.Drawing.Size(836, 829)

@@ -9,8 +9,8 @@ async function finishCard(office,{pause=sleep,now=Date.now,timeout=30000}={}){
    // Never repeat the spending action while the candidate page is still visible.
    if(await office.candidatePage())return false;
    if(blanks>=20)throw new Error('解读过场关闭达到保护上限，尚未返回解读仪式页');
-   await v.blank('关闭解读过场',async()=>!await office.archive()&&!await office.candidatePage());
-   blanks++;return false;
+   if(await v.blank('关闭解读过场',async()=>!await office.archive()&&!await office.candidatePage())!==false)blanks++;
+   return false;
   },'返回解读仪式页',{timeout,stable:2,pause,now});
   console.log('已返回解读仪式页，继续检查卡片');
  }catch(cause){

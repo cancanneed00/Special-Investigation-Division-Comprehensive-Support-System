@@ -14,7 +14,7 @@ test('absent stack means zero only with complete inventory accounting',async()=>
  assert.equal(await office.remaining('勇气护符-V',64),0);assert.equal(await office.remaining('生命护符-V',64),37);
  assert.equal(await office.remaining('勇气护符-V',71),null);rows.splice(1,1);assert.equal(await office.remaining('勇气护符-V',64),null);
 });
-function clockVision(){let time=0;const v=new Flow({slowScale:1,performance:{pollMs:150,operationTimeoutMs:60000},check(){}});v.saveDiagnostic=()=>{};const wait=v.wait.bind(v);v.wait=(probe,label,options)=>wait(probe,label,{...options,now:()=>time,pause:async ms=>{time+=ms;}});return v;}
+function clockVision(){let time=0;const v=new Flow({slowScale:1,performance:{pollMs:150,operationTimeoutMs:60000},check(){}});v.saveDiagnostic=()=>{};v.loading=async()=>false;const wait=v.wait.bind(v);v.wait=(probe,label,options)=>wait(probe,label,{...options,now:()=>time,pause:async ms=>{time+=ms;}});return v;}
 test('last stack requires explicit empty inventory marker',async()=>{
  let empty=false;const office=new OfficeInventory({ocr:async pattern=>empty && pattern==='^暂无物品$'?{hit:true}:null});
  assert.equal(await office.remaining('勇气护符-V',0),null);empty=true;assert.equal(await office.remaining('勇气护符-V',0),0);

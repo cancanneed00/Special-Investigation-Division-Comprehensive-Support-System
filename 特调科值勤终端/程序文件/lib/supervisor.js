@@ -4,8 +4,9 @@ const {fork,spawn}=require('child_process');
 const {createStatusWriter}=require('./status-file');
 function supervise(entry, root, {args=process.argv.slice(2),stopFile=path.join(root,'停止请求'),initialTimeout=300000}={}) {
   const child=fork(entry,args,{cwd:root,env:{...process.env,ECHOES_WORKER:'1'},stdio:['inherit','inherit','inherit','ipc'],windowsHide:true});
-  let deadline=Date.now()+initialTimeout,label='启动准备',reason=null,killing=false;
+  let deadline=Date.now()+initialTimeout,label='启动准备',reason=null,killing=false,taskDeadline=Infinity;
   child.on('message',m=>{
+    if(m?.kind==='task-deadline')taskDeadline=Number.isFinite(m.deadline)?m.deadline:Infinity;
     if(m?.kind==='operation-start') {label=m.label;deadline=Date.now()+Math.min(120000,Math.max(100,m.timeout));}
     if(m?.kind==='operation-end') {label='流程响应';deadline=Date.now()+initialTimeout;}
   });
@@ -19,6 +20,7 @@ function supervise(entry, root, {args=process.argv.slice(2),stopFile=path.join(r
   }
   const timer=setInterval(()=>{
     if(fs.existsSync(stopFile))terminate('用户已停止');
+    else if(Date.now()>taskDeadline+15000)terminate('当前任务超过安全时限，识别进程已停止');
     else if(Date.now()>deadline)terminate(`${label}超时，识别进程已停止；请查看诊断记录`);
   },250);
   child.on('error',error=>{reason='识别进程启动失败：'+error.message;});

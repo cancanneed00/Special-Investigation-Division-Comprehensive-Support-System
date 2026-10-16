@@ -18,10 +18,9 @@ async function enterExternal(v,marker,{pause=sleep}={}){
   for(const direction of directions){
     if(target)break;
     v.s.check();
-    if(await v.loading() || !await recruitPage(v))throw new Error('未确认招募列表，停止滑动');
-    v.invalidate();
-    const result=await v.s.operation('滚动招募左栏',()=>v.s.controller.post_swipe(
-      130,direction===1?590:220,130,direction===1?220:590,600).wait());
+    await v.wait(async()=>!await v.loading() && await recruitPage(v),'招募列表稳定后滑动',{timeout:5000});
+    target=await externalLabel(v);if(target)break;
+    const result=await v.swipe(130,direction===1?590:220,130,direction===1?220:590,600,'招募列表滑动');
     if(!result.succeeded)throw new Error('招募列表滑动失败');
     await pause(800);v.s.check();
     target=await settledLabel(v);

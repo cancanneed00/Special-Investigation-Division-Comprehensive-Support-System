@@ -1,4 +1,5 @@
 const { Vision } = require('./lib/vision');
+const { systemPage } = require('./lib/system-return');
 let vision;
 const fs = require("fs");
 const path = require("path");
@@ -31,22 +32,10 @@ function toArrayBuffer(buffer) {
 
 async function capture(save = null) { return vision.capture(save); }
 
-async function recognize(type, param, options = {}) {
-  const attempts = options.attempts ?? 1;
-  const delay = options.delay ?? 500;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    const image = await capture();
-    const job = await tasker.post_recognition(type, param, image).wait();
-    const detail = await job.get();
-    const node = detail?.nodes?.[0] ? tasker.node_detail(detail.nodes[0]) : null;
-    const reco = node?.reco || null;
-    if (reco?.hit && reco.detail?.best) {
-      log("识别成功", { type, best: reco.detail.best, attempt });
-      return reco;
-    }
-    if (attempt < attempts) await sleep(delay);
-  }
-  return null;
+async function recognize(type,param,options={}) {
+  const reco=await require('./lib/legacy-recognition').legacyRecognize(vision,type,param,options);
+  if(reco)log('识别成功',{type,best:reco.detail.best});
+  return reco;
 }
 
 async function ocr(expected, roi, options = {}) {
@@ -65,13 +54,8 @@ async function template(templateName, roi, options = {}) {
   }, options);
 }
 
-async function clickBox(box, label) {
-  const [x, y, width, height] = box;
-  const point = [Math.round(x + width / 2), Math.round(y + height / 2)];
-  vision.s.check();
-  const job = await controller.post_click(point[0], point[1]).wait();
-  if (!job.succeeded) throw new Error(`点击失败：${label}`);
-  log("点击", { label, point, box });
+async function clickBox(box,label) {
+  await vision.click({detail:{best:{box}}},label);
 }
 
 async function clickOcr(expected, roi, label, options = {}) {
@@ -152,7 +136,7 @@ async function findAndSelectS303() {
       return;
     }
     if (swipe === 8) break;
-    const job = await controller.post_swipe(200, 620, 200, 190, 600).wait();
+    const job = await vision.swipe(200,620,200,190,600,"关卡列表滑动");
     if (!job.succeeded) throw new Error("关卡列表滑动失败。");
     log("滑动关卡列表", { index: swipe + 1 });
     await sleep(700);
@@ -254,11 +238,11 @@ async function finishQuickAction(targetCount) {
   log("任务完成", { orderCount: targetCount, usedCount, stage: "S303 乐园梦魇III" });
 }
 
-async function run(session) {
+async function run(session,{createVision=s=>new Vision(s)}={}) {
   const previousLog = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, "utf8") : "";
   fs.appendFileSync(LOG_FILE, `\n===== ${new Date().toISOString()} 新一轮危机行动 =====\n`, "utf8");
   ({controller, resource, tasker} = session);
-  vision = new Vision(session);
+  vision = createVision(session);
 
   await capture(IMAGE_FILE);
   const interruptedModal = await ocr(".*[0-9]+次.*", [500, 315, 470, 150], {
@@ -276,10 +260,7 @@ async function run(session) {
     return;
   }
 
-  const interruptedSystem = await ocr("^设置$", [0, 500, 300, 220], {
-    attempts: 2,
-    delay: 300,
-  });
+  const interruptedSystem = await vision.frame(() => systemPage(vision));
   if (interruptedSystem && fs.existsSync(STATE_FILE)) {
     log("检测到扫荡完成后停留在系统页，继续执行第二次返回");
     await returnFromSystemToHome();
@@ -294,7 +275,7 @@ async function run(session) {
     await vision.click(entry,'主页系统按钮');
     await sleep(700);
   }
-  await waitOcr("^设置$", [0, 500, 300, 220], "系统页", 20);
+  await vision.wait(() => systemPage(vision), '系统页', {timeout:10000, stable:2});
 
   const order = await readOrderCount();
   if (order.count <= 0) {
