@@ -74,7 +74,7 @@ class OfficeFlow {
  }
  async run(){
   const v=this.v;
-  await v.act(()=>v.ocr('^事务所$'),async()=>await this.meditation()||(!await v.loading()&&await this.home()),'进入事务所',{attempts:3,timeout:45000});
+  await v.act(()=>v.homeButton('office'),async()=>await this.meditation()||(!await v.loading()&&await this.home()),'进入事务所',{attempts:3,timeout:45000});
   await v.wait(async()=>!await v.loading()&&(await this.home()||await this.meditation()),'事务所加载结束',{timeout:45000});
   await sleep(3000);
   if(await this.meditation())await v.blankUntil(()=>this.meditation(),()=>this.home(),'关闭冥想日志',{x:0.93,y:0.82});

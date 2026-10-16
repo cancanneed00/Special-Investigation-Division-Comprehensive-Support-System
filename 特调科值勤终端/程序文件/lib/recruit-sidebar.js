@@ -10,7 +10,7 @@ async function settledLabel(v){
 }
 async function enterExternal(v,marker,{pause=sleep}={}){
   if(await marker())return;
-  if(!await recruitPage(v))await v.textStep('^招募$',()=>recruitPage(v),'打开招募界面');
+  if(!await recruitPage(v))await v.step(()=>v.homeButton('recruit'),()=>recruitPage(v),'打开招募界面');
   // Search the entire visible sidebar before scrolling. A removed event pool
   // moves this entry upward. Search downward first; reverse for saved offsets.
   let target=await settledLabel(v);

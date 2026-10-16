@@ -7,7 +7,7 @@ async function dailyGiftState(v){
 async function run(session) {
  const v=new Flow(session);
  const state=()=>dailyGiftState(v);
- await v.textStep('^补给站$',()=>v.shop(),'进入补给站',[850,490,210,110]);
+ await v.step(()=>v.homeButton('shop'),()=>v.shop(),'进入补给站');
  await v.step(()=>v.supportCabinet(),state,'进入支援货柜');
  const current=await v.wait(state,'每日礼包状态',{timeout:15000});
  if(current.detail.best.text==='可领取'){

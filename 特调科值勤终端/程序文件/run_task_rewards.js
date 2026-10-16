@@ -11,7 +11,7 @@ async function run(session){
  const city=async()=>!await friend()&&await v.ocr('^好友互助$',[900,580,380,140]);
  const friend=()=>v.ocr('^好友互助$',[0,40,430,150]);
  const cleared=async()=>await v.ocr('^CLEARED$',[450,220,760,360])&&await v.ocr('.*当前没有特别.*',[400,300,850,230]);
- await v.textStep('^.?任务$',()=>v.ocr('^日常任务$',[450,0,800,100]),'进入任务');
+ await v.step(()=>v.homeButton('tasks'),()=>v.ocr('^日常任务$',[450,0,800,100]),'进入任务');
  await v.step(async()=>rearHalf(await v.ocr('^日常任务$',[450,0,800,100])),daily,'点击日常任务后半段');
  if(!await cleared()){
   const claim=await v.ocr('^全部领取$',[900,560,380,160]);

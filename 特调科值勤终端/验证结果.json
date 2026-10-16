@@ -1,15 +1,263 @@
 {
-  "release": "2.2.9",
-  "date": "2026-10-14",
-  "javascript_syntax_files": 38,
+  "release": "2.2.10",
+  "date": "2026-10-16",
+  "javascript_syntax_files": 40,
   "unit_and_supervisor_tests": {
-    "passed": 53,
+    "passed": 60,
     "failed": 0
   },
   "powershell_syntax": "passed",
   "ui_layout": "unchanged from previously previewed release; version title updated",
   "native_initialization_regressions": "2 passed against Maa Node 5.13.1; window enumeration stubbed; no game actions",
-  "external_recruit_replay": {
+  "home_skin_replay": {
+    "passed": true,
+    "engine": "v5.13.1",
+    "provider": "CPU",
+    "gameInteraction": false,
+    "skinCrops": 4,
+    "fullHomeScreenshots": 1,
+    "negativePages": 3,
+    "results": [
+      {
+        "input": 1,
+        "width": 503,
+        "height": 594,
+        "buttons": {
+          "shop": {
+            "box": [
+              335,
+              477,
+              103,
+              42
+            ],
+            "score": 0.997693,
+            "text": "补给站"
+          },
+          "office": {
+            "box": [
+              342,
+              387,
+              96,
+              36
+            ],
+            "score": 0.999919,
+            "text": "事务所"
+          },
+          "recruit": {
+            "box": [
+              187,
+              389,
+              99,
+              51
+            ],
+            "score": 0.999139,
+            "text": "招募"
+          },
+          "combat": {
+            "box": [
+              170,
+              260,
+              113,
+              64
+            ],
+            "score": 0.993086,
+            "text": "作战"
+          }
+        }
+      },
+      {
+        "input": 2,
+        "width": 514,
+        "height": 618,
+        "buttons": {
+          "shop": {
+            "box": [
+              93,
+              502,
+              109,
+              43
+            ],
+            "score": 0.997301,
+            "text": "补给站"
+          },
+          "office": {
+            "box": [
+              296,
+              505,
+              111,
+              36
+            ],
+            "score": 0.999937,
+            "text": "事务所"
+          },
+          "recruit": {
+            "box": [
+              317,
+              405,
+              131,
+              50
+            ],
+            "score": 0.987122,
+            "text": "招募"
+          },
+          "combat": {
+            "box": [
+              254,
+              284,
+              112,
+              61
+            ],
+            "score": 0.998935,
+            "text": "作战"
+          }
+        }
+      },
+      {
+        "input": 3,
+        "width": 590,
+        "height": 612,
+        "buttons": {
+          "shop": {
+            "box": [
+              191,
+              505,
+              75,
+              30
+            ],
+            "score": 0.997029,
+            "text": "补给站"
+          },
+          "office": {
+            "box": [
+              391,
+              502,
+              79,
+              33
+            ],
+            "score": 0.999644,
+            "text": "事务所"
+          },
+          "recruit": {
+            "box": [
+              205,
+              422,
+              72,
+              34
+            ],
+            "score": 0.999055,
+            "text": "招募"
+          },
+          "combat": {
+            "box": [
+              358,
+              326,
+              72,
+              22
+            ],
+            "score": 0.998936,
+            "text": "当前进度"
+          }
+        }
+      },
+      {
+        "input": 4,
+        "width": 512,
+        "height": 618,
+        "buttons": {
+          "shop": {
+            "box": [
+              111,
+              517,
+              85,
+              32
+            ],
+            "score": 0.998544,
+            "text": "补给站"
+          },
+          "office": {
+            "box": [
+              316,
+              514,
+              86,
+              33
+            ],
+            "score": 0.999927,
+            "text": "事务所"
+          },
+          "recruit": {
+            "box": [
+              113,
+              419,
+              68,
+              41
+            ],
+            "score": 0.998735,
+            "text": "招募"
+          },
+          "combat": {
+            "box": [
+              264,
+              280,
+              77,
+              44
+            ],
+            "score": 0.996052,
+            "text": "作战"
+          }
+        }
+      },
+      {
+        "input": 5,
+        "width": 1280,
+        "height": 720,
+        "buttons": {
+          "shop": {
+            "box": [
+              873,
+              522,
+              87,
+              39
+            ],
+            "score": 0.999252,
+            "text": "补给站"
+          },
+          "office": {
+            "box": [
+              1073,
+              524,
+              81,
+              34
+            ],
+            "score": 0.999227,
+            "text": "事务所"
+          },
+          "recruit": {
+            "box": [
+              877,
+              434,
+              61,
+              37
+            ],
+            "score": 0.998847,
+            "text": "招募"
+          },
+          "combat": {
+            "box": [
+              1020,
+              293,
+              78,
+              49
+            ],
+            "score": 0.985491,
+            "text": "作战"
+          }
+        }
+      }
+    ],
+    "limits": "OCR/text-box verification only; supplied crops retain original dimensions, no live click/navigation test on four skins"
+  },
+  "home_menu_regressions": "7 passed: coordinate changes, English/progress combat labels, multi-label guards, overlays, ambiguous/low-confidence labels",
+  "external_recruit_replay_inherited_from_229": {
     "passed": true,
     "engine": "v5.13.1",
     "provider": "CPU",

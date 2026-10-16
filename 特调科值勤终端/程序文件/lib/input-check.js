@@ -3,7 +3,7 @@ async function verifyInput(v) {
   let entered = false;
   try {
     await v.wait(() => v.home(), '输入测试起点主页', {timeout:10000});
-    await v.act(() => v.ocr('^补给站$', [850,490,210,110]), () => v.shop(),
+    await v.act(() => v.homeButton('shop'), () => v.shop(),
     '后台点击补给站并进入商店', {attempts:3, timeout:5000});
     entered = true;
     await v.act(() => v.template('主界面按钮.png', [0,0,500,150], 0.74),

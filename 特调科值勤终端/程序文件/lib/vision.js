@@ -166,17 +166,11 @@ class Vision {
       return expected();
     },'获取物资关闭并返回预期页面',{timeout,stable:2});
   }
+  homeButton(key) { return require('./home-menu').homeButton(this,key); }
   async home() {
     return this.frame(async()=>{
-      // Verified against the bundled 1280x720 home screenshot. Both labels lie
-      // in the right/lower panel; full-screen friend mode uses the original extent.
-      const roi=this.s.friendFullscreen ? FULL : [760,260,520,460];
-      const reco=await this.ocr('.*',roi);
-      const all=reco?.detail?.all;
-      if(!Array.isArray(all))return false;
-      const texts=all.map(x=>String(x.text||''));
-      if(texts.some(x=>/获取物资/.test(x)))return false;
-      return texts.some(x=>/^作战$/.test(x)) && texts.some(x=>/^.?任务$/.test(x)) && !await this.reward();
+      const menu=await require('./home-menu').homeMenu(this);
+      return menu.confirmed && !await this.reward();
     });
   }
   supportCabinet() { return this.ocr('^支援货柜$', [70,290,140,85]); }

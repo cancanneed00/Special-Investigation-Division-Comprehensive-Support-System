@@ -4,7 +4,7 @@ const {sweepCorridor}=require('./lib/corridor');
 async function run(session){
  const v=new Flow(session);
  console.log('清体力固定目标：红币');
- await v.textStep('^作战$',()=>v.ocr('.*限禁区.*'),'进入作战');
+ await v.step(()=>v.homeButton('combat'),()=>v.ocr('.*限禁区.*'),'进入作战');
  await v.textStep('.*限禁区.*',()=>v.ocr('^(会客间|会客厅|废弃枢纽)$'),'进入阈限禁区');
  const corridor=()=>v.ocr('.*回廊.*区.*',[600,80,680,490]);
  if(!await corridor()){

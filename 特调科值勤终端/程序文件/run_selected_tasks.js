@@ -89,7 +89,7 @@ async function main() {
       await v.wait(()=>v.home(),'启动时主界面', {timeout:12000});
     } catch(error) {
       try {await v.capture(path.join(ROOT,'启动检查_失败.png'));}catch(captureError){console.log('启动截图保存失败：'+captureError.message);}
-      console.log('启动主页未确认：请先让游戏进入含作战、任务按钮的主界面；诊断截图位于程序文件/启动检查_操作前.png 与 启动检查_失败.png');
+      console.log('启动主页未确认：请先让游戏进入含招募、补给站、事务所等菜单的主界面；诊断截图位于程序文件/启动检查_操作前.png 与 启动检查_失败.png');
       throw error;
     }
     status({state:'running',current:'验证后台点击：进入商店并返回主页'});

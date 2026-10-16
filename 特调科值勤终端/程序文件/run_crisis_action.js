@@ -290,10 +290,9 @@ async function run(session) {
   }
 
   if (!interruptedSystem) {
-    await clickOcr("^系统$", [0, 0, 1280, 720], "主页系统按钮", {
-      attempts: 12,
-      postDelay: 700,
-    });
+    const entry=await vision.wait(()=>vision.homeButton('system'),'主页系统按钮',{stable:1});
+    await vision.click(entry,'主页系统按钮');
+    await sleep(700);
   }
   await waitOcr("^设置$", [0, 500, 300, 220], "系统页", 20);
 
@@ -303,8 +302,7 @@ async function run(session) {
     await clickTemplate("商店_左上返回箭头.png", [0, 0, 250, 120], "返回主界面", {
       attempts: 10,
     });
-    await waitOcr("^作战$", [0, 0, 1280, 720], "主界面", 16);
-    await waitOcr("^.?任务$", [0, 0, 1280, 720], "主界面任务按钮", 8);
+    await vision.wait(()=>vision.home(),'主界面');
     await capture(IMAGE_FILE);
     return;
   }

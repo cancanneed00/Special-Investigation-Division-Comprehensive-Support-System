@@ -1,12 +1,12 @@
 {
   "private": true,
   "name": "echoes-of-vision-maa-daily",
-  "version": "2.2.9",
+  "version": "2.2.10",
   "dependencies": {
     "@maaxyz/maa-node": "5.13.1"
   },
   "scripts": {
-    "test": "node --test tests/optimization.test.js tests/native-init.test.js tests/status-file.test.js tests/office-progress.test.js tests/failure-227.test.js tests/prepare-window.test.js tests/recruit-sidebar.test.js",
+    "test": "node --test tests/optimization.test.js tests/native-init.test.js tests/status-file.test.js tests/office-progress.test.js tests/failure-227.test.js tests/prepare-window.test.js tests/recruit-sidebar.test.js tests/home-menu.test.js",
     "test:images": "node tests/reference-images.js",
     "start": "node run_selected_tasks.js"
   }

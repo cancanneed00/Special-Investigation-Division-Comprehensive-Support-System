@@ -8,7 +8,7 @@ const {observe,loadPerformance}=require('../lib/performance');
 const {supervise}=require('../lib/supervisor');
 function mockVision() {
   let captures=0,calls=0;
-  const reco={hit:true,detail:{best:{text:'作战',box:[1000,300,80,40]},all:[{text:'作战'},{text:'任务'}]}};
+  const reco={hit:true,detail:{best:{text:'作战',box:[1000,300,80,40]},all:['招募','补给站','事务所','探员','作战','任务'].map(text=>({text}))}};
   const png=Buffer.alloc(24);png.write('PNG',1);png.writeUInt32BE(1280,16);png.writeUInt32BE(720,20);
   const s={performance:{provider:'CPU',pollMs:150},slowScale:1,check(){},async operation(label,fn){return fn();},
     controller:{post_screencap(){captures++;return {wait(){return {get:async()=>png};}};},post_click(){return {wait:async()=>({succeeded:true})};}},
@@ -33,11 +33,11 @@ test('click invalidates the current frame',async()=>{
   await v.frame(async()=>{await v.ocr('a');await v.click(reco,'test');await v.ocr('a');});
   assert.equal(counts().captures,2);assert.equal(counts().calls,2);
 });
-test('home needs both markers and rejects a reward overlay',async()=>{
+test('home requires multiple menu labels and rejects a reward overlay',async()=>{
   const {v,reco}=mockVision();v.reward=async()=>null;
   assert.equal(await v.home(),true);
   reco.detail.all=[{text:'作战'}];assert.equal(await v.home(),false);
-  reco.detail.all=[{text:'作战'},{text:'任务'}];v.reward=async()=>({hit:true});assert.equal(await v.home(),false);
+  reco.detail.all=['招募','补给站','事务所','探员'].map(text=>({text}));v.reward=async()=>({hit:true});assert.equal(await v.home(),false);
 });
 test('stable confirmation uses two distinct frames',async()=>{
   const {v,counts}=mockVision();await v.wait(()=>v.ocr('a'),'test',{timeout:1000});
