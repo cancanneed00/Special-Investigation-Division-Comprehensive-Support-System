@@ -5,12 +5,12 @@ const { Vision } = require('./lib/vision');
 const { recover } = require('./lib/navigation');
 const { verifyInput } = require('./lib/input-check');
 const TASKS = [
-  ['external_recruit','外部招募','run_external_recruit.js',240000],
   ['shop_daily','商店每日奖励','run_shop_daily_reward.js',180000],
   ['office_interpret','事务所解读与分解','run_office_interpret.js',900000],
   ['crisis_action','危机行动','run_crisis_action.js',240000],
   ['stamina_clear','清体力','run_stamina_clear.js',600000],
   ['task_rewards','领取任务奖励','run_task_rewards.js',300000],
+  ['external_recruit','外部招募','run_external_recruit.js',240000],
 ];
 const STATUS = path.join(ROOT,'运行_UI状态.json');
 const LOG = path.join(ROOT,'运行_UI.log');

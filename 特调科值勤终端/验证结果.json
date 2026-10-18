@@ -1,7 +1,7 @@
 {
-  "release": "2.2.13",
-  "date": "2026-10-17",
-  "javascript_syntax_files": 47,
+  "release": "2.2.14",
+  "date": "2026-10-19",
+  "javascript_syntax_files": 35,
   "unit_and_supervisor_tests": {
     "passed": 84,
     "failed": 0
@@ -49,11 +49,10 @@
       "failure-228/external.png"
     ]
   },
-  "scope": "危机行动系统页入口识别修复；其他功能实现保持 2.2.12 不变",
+  "scope": "外部招募外招券为 0 优雅退出；任务顺序调整（外部招募最后一步、任务奖励倒数第二步）；调令读取及其他功能保持 2.2.13 不变",
   "limits": [
     "未操作真实游戏或对方电脑",
-    "84 项为回归及模拟流程测试，截图 OCR 为实际引擎离线验证"
-  ],
-  "asset_baseline": "2.2.12 local release",
-  "unchanged_runtime_and_asset_files_verified": 97
+    "外招券识别区域为首版估算，待首次实跑验证",
+    "84 项为回归及模拟流程测试"
+  ]
 }

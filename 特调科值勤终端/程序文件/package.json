@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "echoes-of-vision-maa-daily",
-  "version": "2.2.13",
+  "version": "2.2.14",
   "dependencies": {
     "@maaxyz/maa-node": "5.13.1"
   },
