@@ -7,8 +7,9 @@ try {
  if(-not [Environment]::Is64BitProcess){throw '需要64位 Windows PowerShell'}
  Add-Type -AssemblyName System.Windows.Forms
  Add-Type -AssemblyName System.Drawing
- Add-Type -Path (Join-Path $PSScriptRoot 'ui-style.dll')
- Add-Type -Path (Join-Path $PSScriptRoot 'flow-window.dll')
+. (Join-Path $PSScriptRoot 'lib\assembly-loader.ps1')
+Import-DutyAssembly -Dll (Join-Path $PSScriptRoot 'ui-style.dll') -Source (Join-Path $PSScriptRoot 'ui-style.cs') -ReferencedAssemblies System.Drawing,System.Windows.Forms
+Import-DutyAssembly -Dll (Join-Path $PSScriptRoot 'flow-window.dll') -Source (Join-Path $PSScriptRoot 'flow-window.cs')
  if($SelfTest){
   & (Join-Path $PSScriptRoot 'runtime\node.exe') -e "console.log('Node: '+process.version); require('./node_modules/@maaxyz/maa-node'); console.log('MAA native module OK')"
   if($LASTEXITCODE -ne 0){throw 'Node或MAA原生组件加载失败，请保留以上错误信息'}

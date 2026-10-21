@@ -1,7 +1,8 @@
 ﻿param([ValidateSet('enter','check','click','restore','serve')][string]$Mode, [int]$X, [int]$Y, [int]$ImageWidth, [int]$ImageHeight)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
-Add-Type -Path (Join-Path $PSScriptRoot 'flow-window.dll')
+. (Join-Path $PSScriptRoot 'lib\assembly-loader.ps1')
+Import-DutyAssembly -Dll (Join-Path $PSScriptRoot 'flow-window.dll') -Source (Join-Path $PSScriptRoot 'flow-window.cs')
 
 if($Mode -eq 'serve') {
  [Console]::InputEncoding=New-Object System.Text.UTF8Encoding($false)

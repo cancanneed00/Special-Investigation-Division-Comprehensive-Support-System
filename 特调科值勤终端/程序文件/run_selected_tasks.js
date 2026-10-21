@@ -17,6 +17,7 @@ const LOG = path.join(ROOT,'运行_UI.log');
 const SUMMARY=path.join(ROOT,'运行_摘要.log');
 const {importantLine,appendSummary}=require('./lib/run-summary');
 const {cleanupLogs}=require('./lib/log-retention');
+const {takeNotices}=require('./lib/run-notices');
 const {createStatusWriter}=require('./lib/status-file');
 const writeStatus=createStatusWriter(STATUS,{onWarning:message=>{
   console.log(message);
@@ -137,7 +138,11 @@ async function main() {
       } finally {clearTimeout(hardTimer);session.clearBudget();}
     }
     if(skipped.length===tasks.length)throw new Error('所有选定任务均失败，未完成任何任务；请检查日志');
-    status({state:skipped.length?'completed_with_skips':'completed',current:skipped.length?`结束，跳过 ${skipped.length} 项`:'全部任务完成',skipped});
+    // 任务级结束提醒（如黑胶上限未满）统一在这里展示：写进摘要日志，并缀在终态状态行上。
+    const notices=takeNotices();
+    for(const notice of notices)appendSummary(SUMMARY,notice);
+    const reminder=notices.length?` · ${notices.join('；')}`:'';
+    status({state:skipped.length?'completed_with_skips':'completed',current:(skipped.length?`结束，跳过 ${skipped.length} 项`:'全部任务完成')+reminder,skipped});
   } finally {
     clearTimeout(hardTimer);
     session.clearBudget();

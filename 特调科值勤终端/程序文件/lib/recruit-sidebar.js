@@ -30,13 +30,26 @@ async function enterExternal(v,marker,{pause=sleep}={}){
   await v.step(()=>externalLabel(v),marker,'进入外部招募');
 }
 async function occupiedSlots(v){
-  return v.frame(async()=>{
-    const label=await externalLabel(v);
-    const box=label?.detail?.best?.box;if(!box)return null;
-    const top=Math.max(80,box[1]-85);
-    const reco=await v.ocr('^[0-4][/／]4$',[30,top,195,Math.min(120,720-top)]);
-    const match=reco?.detail?.best?.text?.match(/^([0-4])[/／]4$/);
-    return match?Number(match[1]):null;
-  });
+  // 主检测：右侧招募位面板按“招募中”出现次数统计占用槽位。
+  // 与左栏“N/4”徽标、侧栏滚动无关，最稳。
+  try{
+    const reco=await v.ocr('.*',[900,40,380,560]);
+    const all=(reco&&reco.detail&&reco.detail.all)||[];
+    const texts=all.map(e=>e&&e.text);
+    const occupied=texts.filter(t=>t==='招募中').length;
+    const idle=texts.filter(t=>t==='空闲').length;
+    // 仅当确实识别到槽位状态（招募中/空闲）时才采信，避免整次读空误判为 0。
+    if(reco&&reco.detail&&(occupied+idle)>=1&&occupied>=0&&occupied<=4)return occupied;
+  }catch(_){}
+  // 兜底：左栏“N/4”徽标（放宽到左边缘、标签上下的竖带，避免被屏幕左缘切掉）。
+  const label=await externalLabel(v);
+  const box=label?.detail?.best?.box;
+  if(box){
+    const top=Math.max(0,box[1]-90);
+    const reco=await v.ocr('^[0-4][/／]4$',[0,top,200,150]);
+    const m=reco?.detail?.best?.text?.match(/^([0-4])[/／]4$/);
+    if(m)return Number(m[1]);
+  }
+  return null;
 }
 module.exports={SIDEBAR,externalLabel,recruitPage,enterExternal,occupiedSlots};

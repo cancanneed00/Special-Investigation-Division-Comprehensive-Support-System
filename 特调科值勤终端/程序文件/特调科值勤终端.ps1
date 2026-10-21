@@ -5,7 +5,8 @@ Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $root 'lib\read-shared-text.ps1')
-Add-Type -Path (Join-Path $root 'ui-style.dll')
+. (Join-Path $root 'lib\assembly-loader.ps1')
+Import-DutyAssembly -Dll (Join-Path $root 'ui-style.dll') -Source (Join-Path $root 'ui-style.cs') -ReferencedAssemblies System.Drawing,System.Windows.Forms
 $configFile = Join-Path $root '启动配置.json'
 $logFile = Join-Path $root '运行_摘要.log'
 $statusFile = Join-Path $root '运行_UI状态.json'

@@ -1,7 +1,7 @@
 const fs=require('fs');
 function importantLine(text){
  const first=String(text).split(/\r?\n/)[0];
- if(!/^(开始：|完成并验证：|任务失败：|两个优先类型均缺货|缺货退出已确认)/.test(first))return null;
+ if(!/^(开始：|完成并验证：|任务失败：|两个优先类型均缺货|缺货退出已确认|黑胶上限)/.test(first))return null;
  return first.replace('完成并验证：','完成：').replace(/ Error: /,' · ').slice(0,240);
 }
 function appendSummary(file,text){

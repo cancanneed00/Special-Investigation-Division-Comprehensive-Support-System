@@ -1,4 +1,7 @@
 const {Vision, sleep} = require('./vision');
+// 游戏网络请求偶发失败时弹出的系统弹窗（“注意：连接未成功，请点击确定重试”），
+// 布局固定：消息居中，右侧金色对号为“确定重试”，左侧为放弃的叉号。
+const CONNECTION_DIALOG={pattern:'.*连接未成功.*',roi:[400,250,480,80],retry:[700,370]};
 class Flow extends Vision {
   async loading() {
     return await this.template('流程_加载标志.png', [0,570,250,150], 0.76) &&
@@ -11,10 +14,31 @@ class Flow extends Vision {
   async act(probe,expected,label,options){
     return super.act(()=>this.frame(async()=>!await this.loading() && await probe()),expected,label,options);
   }
+  async dismissConnectionDialog() {
+    const dialog=await this.ocr(CONNECTION_DIALOG.pattern,CONNECTION_DIALOG.roi);
+    if(!dialog)return false;
+    this.invalidate();
+    const [x,y]=CONNECTION_DIALOG.retry;
+    const result=await this.s.operation('后台点击',()=>this.s.controller.post_click(x,y).wait());
+    if(!result.succeeded)throw new Error('连接未成功确定重试点击发送失败');
+    console.log('检测到连接未成功弹窗：已点击确定重试');
+    await sleep(500);
+    return true;
+  }
+  // 包装 step 的结果确认：确认未命中时顺带处理连接重试弹窗，让领取类操作
+  // 在网络抖动后自动重试，而不是等 15 秒超时失败。
+  connectionGuard(expected) {
+    return async()=>{
+      const hit=await expected();
+      if(hit)return hit;
+      await this.dismissConnectionDialog();
+      return null;
+    };
+  }
   async step(probe, expected, label, {irreversible=false}={}) {
     // Each wait is bounded; task/session and native-operation deadlines remain
     // active. A second 15-second gate must not preempt slow-frame confirmation.
-    return this.act(probe,expected,label,{attempts:irreversible?1:3,timeout:irreversible?14500:3500});
+    return this.act(probe,this.connectionGuard(expected),label,{attempts:irreversible?1:3,timeout:irreversible?14500:3500});
   }
   async textStep(text, expected, label, roi, options) {
     return this.step(()=>this.ocr(text,roi),expected,label,options);

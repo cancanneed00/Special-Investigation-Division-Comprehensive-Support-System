@@ -51,7 +51,21 @@ async function run(session) {
    await v.step(()=>v.template('招募数量_MAX.png',[690,260,260,210],0.76),async()=>{
     const a=await count();return a===4-occupied && a===await count();
    },'选择招募 MAX');
-   await v.textStep('^确定$',()=>v.ocr('^任务已满$',[800,400,480,320]),'确认招募并检查任务已满',[560,400,360,190],{irreversible:true});
+   // 确认招募。外招券不足（例如数量为 0）时游戏会拒绝启动，「任务已满」不会出现；
+   // 此时不抛错中断整轮运行，而是关闭弹窗、退回主界面，让外部招募正常结束。
+   let started=true;
+   try{
+    await v.textStep('^确定$',()=>v.ocr('^任务已满$',[800,400,480,320]),'确认招募并检查任务已满',[560,400,360,190],{irreversible:true});
+   }catch(error){
+    started=false;
+    console.log('确定后招募未启动（外招券可能不足）：',error.message);
+   }
+   if(!started){
+    // 弹窗可能仍在（取消/确定可见），先尽力点取消关上，再退回主界面。
+    await v.textStep('^取消$',()=>v.ocr('^启动招募$',[800,400,480,320]),'关闭招募弹窗',[380,430,420,180]).catch(()=>{});
+    await v.homeReturn();
+    return;
+   }
   }
  }
  throw new Error('招募循环达到保护上限');

@@ -1,6 +1,7 @@
 const path=require('path');
 const {Flow}=require('./lib/flow');
-const {sweepCorridor}=require('./lib/corridor');
+const {sweepCorridor,readVinylCap}=require('./lib/corridor');
+const {addNotice}=require('./lib/run-notices');
 async function run(session){
  const v=new Flow(session);
  console.log('清体力固定目标：红币');
@@ -12,6 +13,14 @@ async function run(session){
   if(!await corridor()){console.log('当天无回廊，返回主页');await v.homeReturn();return;}
  }
  await v.step(corridor,()=>v.ocr('^扫荡$',[850,570,300,150]),'进入回廊');
+ // 黑胶上限未满时不刷红币：先刷黑胶更划算。退出清体力流程，整轮结束时提醒用户优先刷黑胶。
+ const vinyl=await readVinylCap(v);
+ if(vinyl!==null&&vinyl<480){
+  console.log(`黑胶上限 ${vinyl}/480 未满，跳过红币刷取`);
+  addNotice(`黑胶上限 ${vinyl}/480 未满，本轮已跳过红币扫荡；黑胶有获取上限、先刷满更划算，请在回廊刷黑胶至 480/480 后重跑清体力`);
+  await v.homeReturn();
+  return;
+ }
  await sweepCorridor(v);
  await v.homeReturn();
  await v.capture(path.join(__dirname,'运行结果_清体力.png'));

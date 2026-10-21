@@ -35,11 +35,18 @@ test('failed swipe and cancellation stop before selecting pool',async()=>{
 test('already on external page bypasses list navigation',async()=>{
  const f=fixture();f.enter();await enterExternal(f.v,f.marker);assert.equal(f.stats().clicks,0);assert.equal(f.stats().swipes,0);
 });
-test('slot badge region follows external label for upper and lower layouts',async()=>{
- for(const y of [278,610]){
-  const f=fixture({y});const original=f.v.ocr;f.v.ocr=async(pattern,roi)=>{
-   if(pattern==='^[0-4][/／]4$'){assert.deepEqual(roi,[30,y-85,195,120]);return {detail:{best:{text:'2/4'}}};}return original(pattern,roi);
-  };assert.equal(await occupiedSlots(f.v),2);
- }
- const f=fixture({missing:true});assert.equal(await occupiedSlots(f.v),null);
+test('occupied slots count follows in-progress markers, then badge fallback',async()=>{
+ // 主检测：右侧面板按“招募中”次数统计占用槽位（与侧栏布局无关）。
+ const a=fixture();const oa=a.v.ocr;a.v.ocr=async(pattern,roi)=>{
+  if(pattern==='.*'){assert.deepEqual(roi,[900,40,380,560]);return {detail:{all:[{text:'招募中'},{text:'空闲'},{text:'空闲'},{text:'空闲'}]}};}
+  return oa(pattern,roi);
+ };assert.equal(await occupiedSlots(a.v),1);
+ // 面板读空但徽标可用：走兜底（左栏“N/4”，放宽到左边缘与标签上下带）。
+ const b=fixture({y:610});const ob=b.v.ocr;b.v.ocr=async(pattern,roi)=>{
+  if(pattern==='.*'){return {detail:{all:[]}};}
+  if(pattern==='^[0-4][/／]4$'){assert.deepEqual(roi,[0,520,200,150]);return {detail:{best:{text:'3/4'}}};}
+  return ob(pattern,roi);
+ };assert.equal(await occupiedSlots(b.v),3);
+ // 面板与徽标都读不到：返回 null。
+ const c=fixture({missing:true,unknown:true});assert.equal(await occupiedSlots(c.v),null);
 });
