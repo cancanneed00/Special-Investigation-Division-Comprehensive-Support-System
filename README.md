@@ -5,7 +5,7 @@
 | 子项目 | 当前版本 | 说明 |
 | --- | --- | --- |
 | [特调科值勤终端](./特调科值勤终端/) | 2.2.14 | 日常委托、事务所与相关流程自动化 |
-| [心锚适格评定终端](./心锚适格评定终端/) | 0.6.4 | 心锚扫描、评定、历史记录与断点续扫 |
+| [心锚适格评定终端](./心锚适格评定终端/) | 0.6.9 | 心锚扫描、评定、历史记录与断点续扫 |
 
 ## 目录与发布
 
@@ -14,7 +14,12 @@
 源码目录不包含运行时、OCR 模型、用户配置、历史数据、日志或实测截图。直接使用请下载对应完整发布包；发布包应作为 GitHub Releases 附件上传，不放入 Git 历史。
 
 - [下载值勤终端 2.2.14 完整运行包](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases/download/duty-v2.2.14/echoes-duty-terminal-2.2.14-20261019.zip)：完整解压后运行 `特调科执勤终端.exe`。
-- 心锚适格评定终端完整包：`心锚适格评定终端-0.6.4.zip`
+- [下载心锚适格评定终端 0.6.9 完整运行包](https://github.com/cancanneed00/Special-Investigation-Division-Comprehensive-Support-System/releases/download/anchor-v0.6.9/anchor-fitness-assessment-terminal-0.6.9.zip)：完整解压后运行对应 EXE。
+
+蓝奏云镜像（提取密码在链接后）：
+
+- 值勤终端 2.2.14：<https://wwavk.lanzn.com/i9liX4d0ao5c>，提取密码 `8m2b`
+- 心锚适格评定终端 0.6.9：<https://wwavk.lanzn.com/iTk6E4d0arqb>，提取密码 `a1ya`
 
 ## 开发说明
 
