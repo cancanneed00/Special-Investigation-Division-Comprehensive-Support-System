@@ -199,5 +199,9 @@ def open_details(a):
   ftree.bind('<<TreeviewSelect>>',fselect)
   for i,m in enumerate(e['matches5']):ftree.insert('','end',iid=str(i),values=(m['character'],'不评分' if m.get('no_score') else number(m['score']),five_status(m)))
   ftree.selection_set('0');fselect()
+ def jump():
+  from ui_v4 import jump_to_catalog
+  jump_to_catalog(a,obs.get('anchor',''));w.destroy()
+ ttk.Button(shell,text='在图鉴中查看 ↗',command=jump).pack(side='bottom',anchor='w',pady=(12,0),before=tabs)
  ttk.Button(shell,text='关闭',command=w.destroy).pack(side='bottom',anchor='e',pady=(12,0),before=tabs)
  w.bind('<Escape>',lambda event:w.destroy())

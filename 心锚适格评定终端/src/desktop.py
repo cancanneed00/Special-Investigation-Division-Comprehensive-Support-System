@@ -19,6 +19,11 @@ def score_text(value,bounds=None):
 
 class App(base.App):
  def build_catalog(self):return ui.build_catalog(self)
+ def filter_chars(self):return ui.filter_chars(self)
+ def catalog_select(self):return ui.catalog_select(self)
+ def switch_catalog_mode(self):return ui.switch_catalog_mode(self)
+ def show_anchor(self):return ui.show_anchor(self)
+ def jump_to_catalog(self,name):return ui.jump_to_catalog(self,name)
  def show_character(self):return ui.show_character(self)
  def __init__(self):
   self.policyvars={};self.events=queue.Queue();self.stop_event=threading.Event();self.batch_records=[]

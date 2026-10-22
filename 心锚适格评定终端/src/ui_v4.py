@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from PIL import Image,ImageTk
 import app as base
+import engine
 from scoring import DEFAULT_POLICY,validate_policy
 
 def scroll_page(parent):
@@ -124,11 +125,47 @@ def open_details(a):
 
 def build_catalog(a):
  left=ttk.Frame(a.catalog,padding=(0,0,14,0));left.pack(side='left',fill='y')
- label(left,'探员图鉴',style='Title.TLabel');label(left,'搜索姓名或职业',color=base.MUTED)
+ label(left,'探员图鉴',style='Title.TLabel')
+ modes=ttk.Frame(left);modes.pack(fill='x')
+ st=ttk.Style();st.configure('Mode.TRadiobutton',background=base.BG,foreground=base.FG)
+ st.map('Mode.TRadiobutton',foreground=[('selected',base.GOLD)])
+ a.catalog_mode=tk.StringVar(value='探员')
+ ttk.Radiobutton(modes,text='按探员',style='Mode.TRadiobutton',variable=a.catalog_mode,value='探员',command=a.switch_catalog_mode).pack(side='left')
+ ttk.Radiobutton(modes,text='按心锚',style='Mode.TRadiobutton',variable=a.catalog_mode,value='心锚',command=a.switch_catalog_mode).pack(side='left',padx=(8,0))
+ label(left,'搜索姓名或职业 / 心锚名称',color=base.MUTED)
  a.search=tk.StringVar();ttk.Entry(left,textvariable=a.search,width=18).pack(fill='x',pady=8);a.search.trace_add('write',lambda *x:a.filter_chars())
  a.people=tk.Listbox(left,bg=base.PANEL,fg=base.FG,selectbackground='#315479',selectforeground='white',relief='flat',font=('Microsoft YaHei UI',11),width=18,activestyle='none',exportselection=False)
- a.people.pack(fill='both',expand=True);a.people.bind('<<ListboxSelect>>',lambda e:a.show_character())
+ a.people.pack(fill='both',expand=True);a.people.bind('<<ListboxSelect>>',lambda e:a.catalog_select())
+ a.anchor_filter=tk.StringVar(value='全部')
  a.catalog_body=scroll_page(a.catalog)
+
+def switch_catalog_mode(a):
+ if a.catalog_mode.get()=='心锚':a.anchor_filter.set('全部')
+ a.search.set('') # A name typed for one list must not empty the other.
+ a.filter_chars()
+
+def catalog_select(a):
+ if a.catalog_mode.get()=='心锚':a.show_anchor()
+ else:a.show_character()
+
+def filter_chars(a):
+ a.people.delete(0,'end')
+ if not a.model:return
+ q=a.search.get().strip().lower()
+ if a.catalog_mode.get()=='心锚':
+  for name in engine.catalog_anchors(a.model):
+   info=a.model['anchors'].get(name) or {}
+   if q in (name+info.get('type','')+info.get('origin','')).lower():a.people.insert('end',name)
+ else:
+  for c in a.model['characters']:
+   if q in (c['name']+c['job']).lower():a.people.insert('end',c['name'])
+ if a.people.size():a.people.selection_set(0);a.catalog_select()
+
+def render_entries(box,rec):
+ for e in rec['entries']:
+  important=any(t['bold'] for t in e['tokens']);red=any(t['red'] for t in e['tokens']);minimum=any(t['direction']=='min' for t in e['tokens'])
+  suffix='仅供参考，不计分' if e['kind']=='trait' else '最低两档' if minimum else '不可替代 · 前两档' if red else '重要 · 前两档' if important else '允许前三档'
+  label(box,('特性 ' if e['kind']=='trait' else '词条 ')+str(e['idx'])+'   '+e['raw']+'    ['+suffix+']',color='#ffaaa0' if red else base.GOLD if important or minimum else base.FG)
 
 def show_character(a):
  s=a.people.curselection()
@@ -140,10 +177,52 @@ def show_character(a):
  for rec in ch['recs']:
   if not rec['active']:continue
   box=card(a.catalog_body,['偶像','图籍','钥匙'][rec['slot']-1]+'  ·  推荐 '+str(rec['rank'])+'  ·  '+rec['anchor'])
-  for e in rec['entries']:
-   important=any(t['bold'] for t in e['tokens']);red=any(t['red'] for t in e['tokens']);minimum=any(t['direction']=='min' for t in e['tokens'])
-   suffix='仅供参考，不计分' if e['kind']=='trait' else '最低两档' if minimum else '不可替代 · 前两档' if red else '重要 · 前两档' if important else '允许前三档'
-   label(box,('特性 ' if e['kind']=='trait' else '词条 ')+str(e['idx'])+'   '+e['raw']+'    ['+suffix+']',color='#ffaaa0' if red else base.GOLD if important or minimum else base.FG)
+  render_entries(box,rec)
+
+def show_anchor(a):
+ # Anchor-first view of the same recommendation data the details dialog shows:
+ # searchable by name, six-star block first, five-star kept separate and lower
+ # priority. Scores need a scanned item, so only the recommendations appear.
+ s=a.people.curselection()
+ if not s or not a.model:return
+ name=a.people.get(s[0])
+ for w in a.catalog_body.winfo_children():w.destroy()
+ info=a.model['anchors'].get(name) or {}
+ six,five=engine.anchor_recommendations(a.model,name)
+ label(a.catalog_body,name,style='Title.TLabel')
+ meta=' / '.join(x for x in [info.get('type'),'来源：'+info['origin'] if info.get('origin') else ''] if x)
+ if meta:label(a.catalog_body,meta,color=base.MUTED)
+ bar=ttk.Frame(a.catalog_body);bar.pack(fill='x',pady=(6,2))
+ ttk.Label(bar,text='推荐来源').pack(side='left')
+ picker=ttk.Combobox(bar,state='readonly',width=10,textvariable=a.anchor_filter,values=['全部','仅六星','仅五星']);picker.pack(side='left',padx=(6,0))
+ picker.bind('<<ComboboxSelected>>',lambda e:a.show_anchor())
+ ttk.Label(bar,text='六星优先展示',foreground=base.MUTED).pack(side='left',padx=10)
+ mode=a.anchor_filter.get()
+ if mode in ('全部','仅六星'):
+  if six:
+   label(a.catalog_body,'六星探员推荐  ·  %d 人 / %d 个方案'%(len({c['name'] for c,_ in six}),len(six)),style='Section.TLabel')
+   for ch,rec in six:render_recommendation(a,ch,rec,6)
+  elif mode=='仅六星':label(a.catalog_body,'六星推荐表中没有探员使用此心锚；可切换为“全部”或“仅五星”查看。',color=base.MUTED)
+ if mode in ('全部','仅五星'):
+  if five:
+   label(a.catalog_body,'五星探员推荐  ·  %d 人 / %d 个方案（优先级低于六星，仅供参考）'%(len({c['name'] for c,_ in five}),len(five)),style='Section.TLabel')
+   for ch,rec in five:render_recommendation(a,ch,rec,5)
+  elif mode=='仅五星':label(a.catalog_body,'五星推荐表中没有探员使用此心锚；可切换为“全部”或“仅六星”查看。',color=base.MUTED)
+ if not six and not five:label(a.catalog_body,'暂无探员推荐此心锚。数值质量与去留可独立判断，无推荐不等于应该放弃。',color=base.MUTED)
+
+def render_recommendation(a,ch,rec,star):
+ box=card(a.catalog_body,ch['name']+'  ·  '+['偶像','图籍','钥匙'][rec['slot']-1]+' 推荐'+str(rec['rank']))
+ label(box,' / '.join(x for x in [('六星探员' if star==6 else '五星探员 · 优先级低于六星'),ch['job'],ch['signet'],ch['damage']] if x),color=base.MUTED)
+ render_entries(box,rec)
+ if ch['note']:label(box,'配装备注：'+ch['note'],color=base.MUTED)
+
+def jump_to_catalog(a,name):
+ a.tabs.select(a.catalog);a.catalog_mode.set('心锚');a.search.set(name);a.filter_chars()
+ target=None
+ for i in range(a.people.size()):
+  if a.people.get(i)==name:target=i;break
+ if target is None:a.status.set('图鉴中未找到“'+name+'”，请先核对识别名称。');return
+ a.people.selection_clear(0,'end');a.people.selection_set(target);a.people.see(target);a.catalog_select()
 
 def build_policy(a):
  from policy_view import build_policy as build
@@ -169,6 +248,8 @@ HELP[2]=('低星活动心锚与扫描速度','一星、二星先做仅名称的�
 HELP.insert(3,('翻页定位与断点续扫','翻页定位失败或停止后，点击“断点 / 手动续扫”。程序会显示最后完成项和继续模式。\n自动续扫要求最后完成项仍被选中，校验通过后从下一件开始；手动续扫要求你选中第一件未处理心锚，并使它完整可见，从该件开始。\n续扫不返回顶部，结果另存并关联前一轮。保持低等级优先排序；无法确认起点时取消，不按心锚名称猜位置。'))
 
 HELP.insert(4,('五星角色心锚推荐','五星角色心锚推荐表与六星同格式解析，使用相同的匹配与档位规则。结果只在“详细依据”的“五星探员推荐”页显示，优先级低于六星，仅供参考：不参与锁定、标记放弃的判断，也不计入最高匹配分。该页仅在当前心锚存在五星推荐时出现。'))
+
+HELP.insert(5,('推荐图鉴 · 按心锚查看','推荐图鉴支持两种查看方式：“按探员”沿用原来的探员列表；“按心锚”把全部心锚列成可搜索列表，选中后显示推荐它的探员与方案，内容与“详细依据”一致。\n按心锚查看时，可用“推荐来源”区分六星与五星推荐：默认“全部”，且六星优先展示；五星推荐标注优先级低于六星、仅供参考。识别评分需要具体心锚，图鉴中只展示推荐关系，不显示匹配分。\n“详细依据”窗口左下角有“在图鉴中查看”按钮，可直接跳到当前心锚的推荐页。'))
 
 def show_rules(a):
  t=a.rules_text;t.configure(state='normal');t.delete('1.0','end')

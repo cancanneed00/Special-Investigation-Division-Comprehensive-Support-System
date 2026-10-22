@@ -6,7 +6,7 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.6'
+VERSION='0.6.7'
 IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()
@@ -193,6 +193,23 @@ def normalize_stat(label,value,unit,legal):
             if unit=='percent' and Decimal(value)<0:label=canonical;value=str(-Decimal(value))
         else:label=canonical
     return {'stat':label,'value':value,'unit':unit,'star':None,'raw_stat':raw_stat,'raw_value':raw_value}
+
+def anchor_recommendations(model,name):
+    """Recommending characters for one anchor as (character, rec) pairs.
+    Six-star rows come first so a caller can show them with priority; the
+    five-star block is returned separately and stays advisory only."""
+    six=[(c,r) for c in model.get('characters') or [] for r in c['recs'] if r.get('active') and r.get('anchor')==name]
+    five=[(c,r) for c in model.get('characters5') or [] for r in c['recs'] if r.get('active') and r.get('anchor')==name]
+    return six,five
+
+def catalog_anchors(model):
+    """Every anchor the encyclopedia can open: the workbook list plus any
+    recommended name missing from it (the import already warns about those)."""
+    names=set(model.get('anchors') or {})
+    for c in (model.get('characters') or [])+(model.get('characters5') or []):
+        for r in c['recs']:
+            if r.get('active') and r.get('anchor'):names.add(r['anchor'])
+    return sorted(names)
 
 def evaluate(model,obs,selected=None,policy=None):
     from scoring import evaluate_dual

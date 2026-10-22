@@ -8,7 +8,13 @@ from engine import Store,import_workbook,evaluate
 import desktop,ui_v4
 
 ROOT=HERE.parent
-book=next((ROOT/'表格').glob('*.xlsx'))
+def find_book():
+    for cand in [ROOT/'表格',
+                 Path(r'C:\Users\30860\Documents\New project\publish-anchor-065\anchor-fitness-assessment-terminal-0.6.5\心锚适格评定终端-0.6.5\表格')]:
+        hits=sorted(cand.glob('*.xlsx'))
+        if hits:return hits[0]
+    raise SystemExit('workbook not found')
+book=find_book()
 model=import_workbook(book)
 app=desktop.App();app.withdraw()
 try:
@@ -57,6 +63,32 @@ try:
     app.history.selection_set('0');app.select_history();app.update_idletasks()
     assert '推荐使用' in app.historycaption.get(),app.historycaption.get()
     print('OK history table and caption render the event row')
+    # 5) details dialog exposes the encyclopedia jump; catalog anchor mode renders
+    ui_v4.open_details(app);app.update()
+    def buttons(w,out):
+        for c in w.winfo_children():
+            try:
+                if c.cget('text')=='在图鉴中查看 ↗':out.append(c)
+            except Exception:pass
+            buttons(c,out)
+        return out
+    found=[]
+    import tkinter as tk
+    for w in app.winfo_children():
+        if isinstance(w,tk.Toplevel):found+=buttons(w,[])
+    assert found,'details dialog should offer the encyclopedia jump'
+    app.catalog_mode.set('心锚');app.switch_catalog_mode()
+    app.jump_to_catalog(obs2['anchor']);app.update_idletasks()
+    texts=[]
+    def collect(w):
+        for c in w.winfo_children():
+            try:
+                if c.cget('text'):texts.append(c.cget('text'))
+            except Exception:pass
+            collect(c)
+    collect(app.catalog_body)
+    assert any(t.startswith('六星探员推荐') for t in texts),texts[:5]
+    print('OK encyclopedia jump button + catalog anchor mode for',obs2['anchor'])
 finally:
     app.destroy()
 print('UI SMOKE PASSED')
