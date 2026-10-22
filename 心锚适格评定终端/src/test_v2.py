@@ -55,6 +55,17 @@ class DualTests(unittest.TestCase):
   o=parse_ocr(items,self.m)
   self.assertEqual(o['anchor'],'宝藏挂坠')
   self.assertFalse([s for s in o['issues'] if s.startswith('名称需核对')])
+ def test_name_variant_char_resolved(self):
+  # OCR 简繁异体(掛/挂)+前置图标，应归一到表格名，不报名称需核对
+  items=[{'box':[312,64,27,33],'text':'全','score':.10},
+         {'box':[345,65,111,31],'text':'宝藏掛坠','score':.96}]
+  o=parse_ocr(items,self.m)
+  self.assertEqual(o['anchor'],'宝藏挂坠')
+  self.assertFalse([s for s in o['issues'] if s.startswith('名称需核对')])
+ def test_unknown_name_kept_for_review(self):
+  # 未知/高歧异名称不静默错配，保留人工复核
+  o=parse_ocr([{'box':[345,65,120,31],'text':'精雕紫钻钥匙','score':.9}],self.m)
+  self.assertTrue(any(s.startswith('名称需核对') for s in o['issues']))
  def test_unknown_not_absent(self):
   o=self.obs(3);o['presence'].pop('4');self.assertEqual(evaluate(self.m,o)['decision'],'跳过复核')
  def test_independent_scores(self):
