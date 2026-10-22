@@ -5,6 +5,8 @@ const corridor=require(path.join(ROOT,'lib/corridor'));
 const notices=require(path.join(ROOT,'lib/run-notices'));
 const VINYL=corridor.VINYL_ROI;
 const VINYL_PATTERN='^\\d+\\s*[\\/／]\\s*\\d+$';
+// run_stamina_clear 开跑即登记的关卡解锁前提提醒（自动刷取只支持已解锁关卡）。
+const UNLOCK_NOTICE='清体力为自动刷取，仅支持已解锁的关卡；目标关卡未解锁将导致本次刷取失败，请先在游戏中确认关卡已全部解锁';
 const noPause={pause:async()=>{}};
 // 只回答黑胶计数 OCR 的假 Flow：其余识别一律不命中。
 function vinylFlow(text,score=0.95){
@@ -78,7 +80,7 @@ test('unfilled cap skips red-coin sweep, returns home and registers the reminder
  });
  assert.deepEqual(homeReturns,['homeReturn']);
  assert.deepEqual(captured,[]);
- assert.deepEqual(notices.takeNotices(),['黑胶上限 0/480 未满，本轮已跳过红币扫荡；黑胶有获取上限、先刷满更划算，请在回廊刷黑胶至 480/480 后重跑清体力']);
+ assert.deepEqual(notices.takeNotices(),[UNLOCK_NOTICE,'黑胶上限 0/480 未满，本轮已跳过红币扫荡；黑胶有获取上限、先刷满更划算，请在回廊刷黑胶至 480/480 后重跑清体力']);
 });
 test('full cap proceeds to sweep and finishes normally',async()=>{
  const homeReturns=[],captured=[];
@@ -90,7 +92,7 @@ test('full cap proceeds to sweep and finishes normally',async()=>{
  assert.deepEqual(swept,['swept']);
  assert.deepEqual(homeReturns,['homeReturn']);
  assert.deepEqual(captured,['capture']);
- assert.deepEqual(notices.takeNotices(),[]);
+ assert.deepEqual(notices.takeNotices(),[UNLOCK_NOTICE]);
 });
 test('unknown cap reading keeps the existing sweep behavior',async()=>{
  const homeReturns=[],captured=[];
@@ -100,5 +102,5 @@ test('unknown cap reading keeps the existing sweep behavior',async()=>{
   await run({});
  });
  assert.deepEqual(swept,['swept']);
- assert.deepEqual(notices.takeNotices(),[]);
+ assert.deepEqual(notices.takeNotices(),[UNLOCK_NOTICE]);
 });

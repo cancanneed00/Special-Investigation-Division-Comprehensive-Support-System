@@ -5,6 +5,8 @@ const {addNotice}=require('./lib/run-notices');
 async function run(session){
  const v=new Flow(session);
  console.log('清体力固定目标：红币');
+ // 自动刷取前提：程序不负责解锁关卡。目标关卡未解锁会直接失败，先明确告知用户。
+ addNotice('清体力为自动刷取，仅支持已解锁的关卡；目标关卡未解锁将导致本次刷取失败，请先在游戏中确认关卡已全部解锁');
  await v.step(()=>v.homeButton('combat'),()=>v.ocr('.*限禁区.*'),'进入作战');
  await v.textStep('.*限禁区.*',()=>v.ocr('^(会客间|会客厅|废弃枢纽)$'),'进入阈限禁区');
  const corridor=()=>v.ocr('.*回廊.*区.*',[600,80,680,490]);
