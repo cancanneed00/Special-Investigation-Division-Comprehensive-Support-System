@@ -14,6 +14,7 @@ import automation,vision
 
 def find_book():
     candidates=[HERE.parent/'心锚终端/表格',
+                Path(r'C:\Users\30860\Documents\New project\publish-anchor-065\test-068\心锚适格评定终端-0.6.8\表格'),
                 Path(r'C:\Users\30860\Documents\New project\publish-anchor-065\anchor-fitness-assessment-terminal-0.6.5\心锚适格评定终端-0.6.5\表格')]
     for cand in candidates:
         if cand.exists():
@@ -103,6 +104,16 @@ o=parse_name([{'box':[345,65,120,31],'text':'精雕紫钻钥匙','score':.9}],m2
 assert any(s.startswith('名称需核对') for s in o[2])
 assert parse_name([],{})[0]==''
 print('OK parse_name icon/variant/unknown/empty')
+# 0.6.9: low-star reads disable the fuzzy fallback. 爱伦的家庭 is a regular
+# two-star anchor missing from the workbook; at ratio 0.6 the fuzzy pass used
+# to silently turn it into the event anchor 爱伦的葬礼.
+low_star=[{'box':[345,65,120,31],'text':'爱伦的家庭','score':.96}]
+assert parse_name(low_star,m2)[0]=='爱伦的葬礼'  # fuzzy default kept for 3+ star recovery
+o=parse_name(low_star,m2,fuzzy=False)
+assert o[0]=='爱伦的家庭' and any(s.startswith('名称需核对') for s in o[2])
+o=parse_name([{'box':[345,65,111,31],'text':'宝藏掛坠','score':.96}],m2,fuzzy=False)
+assert o[0]=='宝藏掛坠' and any(s.startswith('名称需核对') for s in o[2])  # variant text stays unmatched by design: skip, never guess
+print('OK parse_name low-star exact-only (fuzzy off)')
 
 # --- recognize() low-star name-only OCR ---------------------------------------
 with tempfile.TemporaryDirectory() as root:

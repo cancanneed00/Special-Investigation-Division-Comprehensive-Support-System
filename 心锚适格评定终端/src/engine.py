@@ -6,7 +6,7 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.8'
+VERSION='0.6.9'
 IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()
@@ -247,7 +247,7 @@ def recognize(root,path,model,stop=None):
             for block in raw:
                 for x in (block.get('detail') or {}).get('all',[]):
                     if 'box' in x and x.get('text'):items.append(x)
-            anchor,name,name_issues=parse_name(items,model)
+            anchor,name,name_issues=parse_name(items,model,fuzzy=False)
             def band(lo,hi):return sorted([x for x in items if lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
             lv=''.join(x['text'].replace(' ','') for x in band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv)
             level=int(m.group(1)) if m else None
@@ -290,10 +290,15 @@ def recognize(root,path,model,stop=None):
     (out/'observation.json').write_text(json.dumps(obs,ensure_ascii=False,indent=2),encoding='utf-8')
     return obs
 
-def parse_name(items,model):
+def parse_name(items,model,fuzzy=True):
     """Read the anchor name from the base OCR pass. The leading item icon is
     low-confidence noise; simplified/traditional OCR variants are resolved
-    against the workbook, and an ambiguous name is never silently mismatched."""
+    against the workbook, and an ambiguous name is never silently mismatched.
+    The fuzzy fallback must stay off for one/two-star reads: most low-star
+    anchors are ordinary items missing from the workbook, and a near match
+    would silently turn them into event anchors (e.g. 爱伦的家庭 scored 0.6
+    against 爱伦的葬礼). A miss is harmless - the item is skipped - while a
+    wrong match mislabels it, so low-star names match exactly or not at all."""
     anchors=model.get('anchors') or {}
     def band(lo,hi):return sorted([x for x in items if not x.get('zoom') and not x.get('rows_zoom') and lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
     def text(xs):return ''.join(x['text'].replace(' ','') for x in xs)
@@ -301,7 +306,7 @@ def parse_name(items,model):
     while i<len(name_band) and float(name_band[i].get('score',0))<.5:i+=1
     name=text(name_band[i:] if i and i<len(name_band) else name_band)
     issues=[];found=[a for a in anchors if a in name]
-    if len(found)!=1 and name:
+    if len(found)!=1 and name and fuzzy:
         import difflib
         ranked=sorted(((difflib.SequenceMatcher(None,a,name).ratio(),a) for a in anchors),reverse=True)
         if ranked and ranked[0][0]>=.6 and (len(ranked)<2 or ranked[0][0]-ranked[1][0]>=.1):found=[ranked[0][1]]
