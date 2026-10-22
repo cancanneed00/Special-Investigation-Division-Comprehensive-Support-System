@@ -49,6 +49,8 @@ class App(tk.Tk):
         self.book=ttk.Combobox(bar,state='readonly',width=58);self.book.pack(side='left',fill='x',expand=True)
         self.loadbtn=ttk.Button(bar,text='读取 / 更新数据库',command=self.load);self.loadbtn.pack(side='left',padx=8)
         ttk.Button(bar,text='打开表格文件夹',command=lambda:os.startfile(self.store.folder)).pack(side='left')
+        hint=ttk.Frame(self,padding=(16,0,16,4));hint.pack(fill='x')
+        ttk.Label(hint,text='推荐配装表格（xlsx）由 B 站 UP 主「凤凰的使徒」维护，最新版请向其索取；放入「表格」文件夹后点击「读取 / 更新数据库」即可更新。',foreground=MUTED,style='Muted.TLabel',wraplength=1100).pack(side='left')
         self.tabs=ttk.Notebook(self);self.tabs.pack(fill='both',expand=True,padx=16,pady=(0,6))
         self.catalog=ttk.Frame(self.tabs,padding=14);self.scan=ttk.Frame(self.tabs,padding=14);self.info=ttk.Frame(self.tabs,padding=14)
         self.tabs.add(self.catalog,text='推荐图鉴');self.tabs.add(self.scan,text='截图识别与评分');self.tabs.add(self.info,text='规则与使用说明')
