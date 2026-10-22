@@ -20,7 +20,7 @@ app=desktop.App();app.withdraw()
 try:
     app.maintenance_started=True
     app.accept_model((model,False))
-    assert app.people.size()==40
+    assert app.people.size()==len(model['characters'])+len(model['characters5'])
 
     # 1) five-star recommended anchor: results table + details dialog with the new tab
     a=model['anchors']['一万个问题']
@@ -89,6 +89,20 @@ try:
     collect(app.catalog_body)
     assert any(t.startswith('六星探员推荐') for t in texts),texts[:5]
     print('OK encyclopedia jump button + catalog anchor mode for',obs2['anchor'])
+
+    # 6) character view gains the source filter; a five-star character opens her anchors
+    app.catalog_mode.set('探员');app.switch_catalog_mode()
+    assert app.people.size()==len(model['characters'])+len(model['characters5'])
+    app.catalog_source.set('仅五星');app.catalog_source_changed();app.update_idletasks()
+    assert app.people.size()==len(model['characters5'])
+    name5=app.people.get(0)
+    app.people.selection_set(0);app.catalog_select();app.update_idletasks()
+    texts=[]
+    collect(app.catalog_body)
+    assert any(name5 in t for t in texts),texts[:5]
+    assert any('五星探员 · 优先级低于六星' in t for t in texts),texts[:5]
+    assert any('推荐' in t and ('偶像' in t or '图籍' in t or '钥匙' in t) for t in texts),texts[:5]
+    print('OK character source filter + five-star character view for',name5)
 finally:
     app.destroy()
 print('UI SMOKE PASSED')

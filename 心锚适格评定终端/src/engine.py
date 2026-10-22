@@ -6,7 +6,7 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.7'
+VERSION='0.6.8'
 IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()
@@ -210,6 +210,17 @@ def catalog_anchors(model):
         for r in c['recs']:
             if r.get('active') and r.get('anchor'):names.add(r['anchor'])
     return sorted(names)
+
+def catalog_people(model):
+    """Every character the catalog can open: six-star rows first so they keep
+    priority, five-star rows after. Each entry keeps the parse_characters
+    shape and gains 'tier' (6 or 5) so a caller can filter or label the
+    source table without re-deriving it. Copies are deep: the catalog only
+    reads, but a stray edit must never reach the shared model."""
+    import copy
+    people=[dict(copy.deepcopy(c),tier=6) for c in model.get('characters') or []]
+    people+=[dict(copy.deepcopy(c),tier=5) for c in model.get('characters5') or []]
+    return people
 
 def evaluate(model,obs,selected=None,policy=None):
     from scoring import evaluate_dual

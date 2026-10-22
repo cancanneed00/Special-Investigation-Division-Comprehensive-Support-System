@@ -60,7 +60,7 @@ app=desktop.App();app.withdraw()
 try:
     app.maintenance_started=True
     app.accept_model((model,False))
-    assert app.people.size()==40,'character mode keeps the six-star roster'
+    assert app.people.size()==len(model['characters'])+len(model['characters5']),'character mode lists both rosters (six-star first)'
 
     # switch to anchor mode: the list becomes the searchable anchor catalog
     app.switch_catalog_mode()
@@ -93,7 +93,7 @@ try:
     five_head=[t for t in texts if t.startswith('五星探员推荐')]
     assert six_head and five_head,'both blocks expected for '+both
     assert texts.index(six_head[0])<texts.index(five_head[0]),'six-star block must come first'
-    assert '六星优先展示' in texts
+    assert any('六星优先展示' in t for t in texts)
     assert '优先级低于六星' in five_head[0]
     print('OK',both,': six-star block rendered before the five-star block')
 
@@ -122,7 +122,7 @@ try:
 
     # back to character mode: the roster is restored
     app.catalog_mode.set('探员');app.switch_catalog_mode()
-    assert app.people.size()==40
+    assert app.people.size()==len(model['characters'])+len(model['characters5'])
     app.people.selection_set(0);app.catalog_select();app.update_idletasks()
     assert any('推荐' in t or '词条' in t for t in body_texts())
     print('OK character mode unchanged after the anchor round-trip')

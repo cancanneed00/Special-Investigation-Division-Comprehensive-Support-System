@@ -132,17 +132,29 @@ def build_catalog(a):
  a.catalog_mode=tk.StringVar(value='探员')
  ttk.Radiobutton(modes,text='按探员',style='Mode.TRadiobutton',variable=a.catalog_mode,value='探员',command=a.switch_catalog_mode).pack(side='left')
  ttk.Radiobutton(modes,text='按心锚',style='Mode.TRadiobutton',variable=a.catalog_mode,value='心锚',command=a.switch_catalog_mode).pack(side='left',padx=(8,0))
+ # One source picker serves both modes: by character it filters which sheet
+ # the character comes from; by anchor it filters who recommends the anchor.
+ a.catalog_source=tk.StringVar(value='全部');a.anchor_filter=a.catalog_source
+ src=ttk.Frame(left);src.pack(fill='x',pady=(6,0))
+ a.source_label=ttk.Label(src,text='探员来源');a.source_label.pack(side='left')
+ picker=ttk.Combobox(src,state='readonly',width=8,textvariable=a.catalog_source,values=['全部','仅六星','仅五星']);picker.pack(side='left',padx=(6,0))
+ picker.bind('<<ComboboxSelected>>',lambda e:a.catalog_source_changed())
+ ttk.Label(src,text='六星优先',foreground=base.MUTED).pack(side='left',padx=8)
  label(left,'搜索姓名或职业 / 心锚名称',color=base.MUTED)
  a.search=tk.StringVar();ttk.Entry(left,textvariable=a.search,width=18).pack(fill='x',pady=8);a.search.trace_add('write',lambda *x:a.filter_chars())
  a.people=tk.Listbox(left,bg=base.PANEL,fg=base.FG,selectbackground='#315479',selectforeground='white',relief='flat',font=('Microsoft YaHei UI',11),width=18,activestyle='none',exportselection=False)
  a.people.pack(fill='both',expand=True);a.people.bind('<<ListboxSelect>>',lambda e:a.catalog_select())
- a.anchor_filter=tk.StringVar(value='全部')
  a.catalog_body=scroll_page(a.catalog)
 
 def switch_catalog_mode(a):
- if a.catalog_mode.get()=='心锚':a.anchor_filter.set('全部')
+ a.catalog_source.set('全部') # A filter meant for one list must not empty the other.
  a.search.set('') # A name typed for one list must not empty the other.
+ a.source_label.configure(text='推荐来源' if a.catalog_mode.get()=='心锚' else '探员来源')
  a.filter_chars()
+
+def catalog_source_changed(a):
+ if a.catalog_mode.get()=='心锚':a.show_anchor() # keep the current anchor selected
+ else:a.filter_chars()
 
 def catalog_select(a):
  if a.catalog_mode.get()=='心锚':a.show_anchor()
@@ -157,8 +169,10 @@ def filter_chars(a):
    info=a.model['anchors'].get(name) or {}
    if q in (name+info.get('type','')+info.get('origin','')).lower():a.people.insert('end',name)
  else:
-  for c in a.model['characters']:
-   if q in (c['name']+c['job']).lower():a.people.insert('end',c['name'])
+  for c in engine.catalog_people(a.model):
+   if a.catalog_source.get()=='仅六星' and c['tier']!=6:continue
+   if a.catalog_source.get()=='仅五星' and c['tier']!=5:continue
+   if q in (c['name']+c['job']+('六星探员' if c['tier']==6 else '五星探员')).lower():a.people.insert('end',c['name'])
  if a.people.size():a.people.selection_set(0);a.catalog_select()
 
 def render_entries(box,rec):
@@ -170,9 +184,13 @@ def render_entries(box,rec):
 def show_character(a):
  s=a.people.curselection()
  if not s or not a.model:return
- ch=next(c for c in a.model['characters'] if c['name']==a.people.get(s[0]))
+ ch=next((c for c in engine.catalog_people(a.model) if c['name']==a.people.get(s[0])),None)
+ if not ch:return
  for w in a.catalog_body.winfo_children():w.destroy()
- label(a.catalog_body,ch['name'],style='Title.TLabel');label(a.catalog_body,' / '.join(x for x in [ch['job'],ch['signet'],ch['damage']] if x),color=base.MUTED)
+ label(a.catalog_body,ch['name'],style='Title.TLabel')
+ meta=' / '.join(x for x in [('六星探员' if ch['tier']==6 else '五星探员 · 优先级低于六星，仅供参考'),ch['job'],ch['signet'],ch['damage']] if x)
+ label(a.catalog_body,meta,color=base.MUTED)
+ if ch['tier']==5 and a.model.get('recommendation_notes5'):label(a.catalog_body,a.model['recommendation_notes5'],color=base.MUTED)
  if ch['note']:label(card(a.catalog_body,'配装说明'),ch['note'])
  for rec in ch['recs']:
   if not rec['active']:continue
@@ -193,10 +211,7 @@ def show_anchor(a):
  meta=' / '.join(x for x in [info.get('type'),'来源：'+info['origin'] if info.get('origin') else ''] if x)
  if meta:label(a.catalog_body,meta,color=base.MUTED)
  bar=ttk.Frame(a.catalog_body);bar.pack(fill='x',pady=(6,2))
- ttk.Label(bar,text='推荐来源').pack(side='left')
- picker=ttk.Combobox(bar,state='readonly',width=10,textvariable=a.anchor_filter,values=['全部','仅六星','仅五星']);picker.pack(side='left',padx=(6,0))
- picker.bind('<<ComboboxSelected>>',lambda e:a.show_anchor())
- ttk.Label(bar,text='六星优先展示',foreground=base.MUTED).pack(side='left',padx=10)
+ ttk.Label(bar,text='推荐来源见左侧筛选 · 六星优先展示',foreground=base.MUTED).pack(side='left')
  mode=a.anchor_filter.get()
  if mode in ('全部','仅六星'):
   if six:
@@ -249,7 +264,7 @@ HELP.insert(3,('翻页定位与断点续扫','翻页定位失败或停止后，�
 
 HELP.insert(4,('五星角色心锚推荐','五星角色心锚推荐表与六星同格式解析，使用相同的匹配与档位规则。结果只在“详细依据”的“五星探员推荐”页显示，优先级低于六星，仅供参考：不参与锁定、标记放弃的判断，也不计入最高匹配分。该页仅在当前心锚存在五星推荐时出现。'))
 
-HELP.insert(5,('推荐图鉴 · 按心锚查看','推荐图鉴支持两种查看方式：“按探员”沿用原来的探员列表；“按心锚”把全部心锚列成可搜索列表，选中后显示推荐它的探员与方案，内容与“详细依据”一致。\n按心锚查看时，可用“推荐来源”区分六星与五星推荐：默认“全部”，且六星优先展示；五星推荐标注优先级低于六星、仅供参考。识别评分需要具体心锚，图鉴中只展示推荐关系，不显示匹配分。\n“详细依据”窗口左下角有“在图鉴中查看”按钮，可直接跳到当前心锚的推荐页。'))
+HELP.insert(5,('推荐图鉴 · 按心锚查看','推荐图鉴支持两种查看方式：“按探员”列出六星与五星全部探员，“按心锚”把全部心锚列成可搜索列表，选中后显示推荐它的探员与方案，内容与“详细依据”一致。\n左侧“探员来源 / 推荐来源”筛选同时作用于两种方式：按探员时筛选探员出自六星表还是五星表，按心锚时筛选推荐该心锚的探员出自哪张表；默认“全部”，六星始终优先展示。想找某个五星探员适合什么心锚，就选“按探员”、来源选“仅五星”，再搜索该探员姓名。\n按探员选中五星探员时，右侧显示该探员在五星推荐表中的心锚方案，标注优先级低于六星；五星方案不参与锁定、标记放弃的判断。识别评分需要具体心锚，图鉴中只展示推荐关系，不显示匹配分。\n“详细依据”窗口左下角有“在图鉴中查看”按钮，可直接跳到当前心锚的推荐页。'))
 
 def show_rules(a):
  t=a.rules_text;t.configure(state='normal');t.delete('1.0','end')

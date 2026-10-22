@@ -22,6 +22,7 @@ class App(base.App):
  def filter_chars(self):return ui.filter_chars(self)
  def catalog_select(self):return ui.catalog_select(self)
  def switch_catalog_mode(self):return ui.switch_catalog_mode(self)
+ def catalog_source_changed(self):return ui.catalog_source_changed(self)
  def show_anchor(self):return ui.show_anchor(self)
  def jump_to_catalog(self,name):return ui.jump_to_catalog(self,name)
  def show_character(self):return ui.show_character(self)
