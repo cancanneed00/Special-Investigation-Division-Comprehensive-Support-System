@@ -284,7 +284,7 @@ $recordLabel.Location=New-Object System.Drawing.Point(424,602);$recordLabel.Text
 $detailButton.Location=New-Object System.Drawing.Point(1016,592)
 $logBox.Location=New-Object System.Drawing.Point(424,632);$logBox.Size=New-Object System.Drawing.Size(730,100);$logBox.BackColor=$taskGroup.BackColor
 $logBox.Text='等待开始。这里只显示任务开始、完成与异常。'
-$footer.Location=New-Object System.Drawing.Point(26,736);$footer.Size=New-Object System.Drawing.Size(1128,42);$footer.Text='运行时请勿操作鼠标                              诊断记录保留 14 天 / 100 MB`n自动刷取（清体力）仅支持已解锁的关卡：目标关卡未解锁时刷取会中断并按失败处理，开始前请先在游戏中确认关卡已全部解锁。'
+$footer.Location=New-Object System.Drawing.Point(26,736);$footer.Size=New-Object System.Drawing.Size(1128,42);$footer.Text='运行时请勿操作鼠标                              诊断记录保留 14 天 / 100 MB`n自动刷取仅支持已解锁的关卡：目标关卡未解锁时刷取会中断并按失败处理，开始前请先在游戏中确认关卡已全部解锁。'
 $taskGroup.Controls.Add($performanceCombo)
 $performanceCombo.Location=New-Object System.Drawing.Point(400,10)
 $performanceCombo.Size=New-Object System.Drawing.Size(312,28)
