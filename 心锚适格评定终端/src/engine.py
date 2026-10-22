@@ -6,8 +6,8 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.4'
-IMPORT_VERSION=4
+VERSION='0.6.6'
+IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()
 def segments(cell):
@@ -83,27 +83,35 @@ def import_workbook(path):
                        'pools':{str(k):[x for x in v if x] for k,v in pools.items()},
                        'traits':{'1':[plain(row[18].value)] if row[18].value else [],'2':[plain(x.value) for x in row[19:23] if x.value]},
                        'source':row[1].coordinate,'origin':plain(row[3].value)}
-    chars=[];ws=w['六星角色心锚推荐']
-    for head in range(4,ws.max_row+1,7):
-        name=plain(ws.cell(head,2).value)
-        if not name:continue
-        ch={'name':name,'job':plain(ws.cell(head,3).value),'signet':plain(ws.cell(head,4).value),'damage':plain(ws.cell(head,5).value),
-            'note':plain(ws.cell(head+1,1).value),'recs':[]}
-        for slot,cols in enumerate([(6,7),(8,9),(10,11)],1):
-            for rank,col in enumerate(cols,1):
-                anchor=plain(ws.cell(head,col).value)
-                rec={'anchor':anchor,'slot':slot,'rank':rank,'source':ws.cell(head,col).coordinate,'entries':[],'active':anchor not in ('','无','观望')}
-                if rec['active']:
-                    for i in range(1,7):
-                        e=parse_entry(ws.cell(head+i,col),'entry' if i<=4 else 'trait',i if i<=4 else i-4)
-                        if e:rec['entries'].append(e)
-                    if anchor not in anchors:warnings.append('推荐心锚未在百科中找到：'+anchor)
-                ch['recs'].append(rec)
-        chars.append(ch)
+    def parse_characters(ws):
+        # Six-star and five-star sheets share one layout: a 7-row block per
+        # character, recommendations in columns 6-11 (3 slots x 2 ranks).
+        chars=[]
+        for head in range(4,ws.max_row+1,7):
+            name=plain(ws.cell(head,2).value)
+            if not name:continue
+            ch={'name':name,'job':plain(ws.cell(head,3).value),'signet':plain(ws.cell(head,4).value),'damage':plain(ws.cell(head,5).value),
+                'note':plain(ws.cell(head+1,1).value),'recs':[]}
+            for slot,cols in enumerate([(6,7),(8,9),(10,11)],1):
+                for rank,col in enumerate(cols,1):
+                    anchor=plain(ws.cell(head,col).value)
+                    rec={'anchor':anchor,'slot':slot,'rank':rank,'source':ws.cell(head,col).coordinate,'entries':[],'active':anchor not in ('','无','观望')}
+                    if rec['active']:
+                        for i in range(1,7):
+                            e=parse_entry(ws.cell(head+i,col),'entry' if i<=4 else 'trait',i if i<=4 else i-4)
+                            if e:rec['entries'].append(e)
+                        if anchor not in anchors:warnings.append('推荐心锚未在百科中找到：'+anchor)
+                    ch['recs'].append(rec)
+            chars.append(ch)
+        return chars
+    chars=parse_characters(w['六星角色心锚推荐'])
+    chars5=parse_characters(w['五星角色心锚推荐']) if '五星角色心锚推荐' in w.sheetnames else []
     if not chars or not rules:raise ValueError('工作表未解析到有效数据')
+    notes5=plain(w['五星角色心锚推荐']['A2'].value) if chars5 else ''
     return {'version':IMPORT_VERSION,'hash':digest,'source':str(Path(path).resolve()),'filename':Path(path).name,
-            'characters':chars,'anchors':anchors,'rules':rules,'warnings':sorted(set(warnings)),
-            'notes':plain(w['词条数值']['A2'].value),'recommendation_notes':plain(ws['A2'].value)}
+            'characters':chars,'characters5':chars5,'anchors':anchors,'rules':rules,'warnings':sorted(set(warnings)),
+            'notes':plain(w['词条数值']['A2'].value),'recommendation_notes':plain(w['六星角色心锚推荐']['A2'].value),
+            'recommendation_notes5':notes5}
 
 class Store:
     def __init__(self,root):
@@ -200,8 +208,25 @@ def recognize(root,path,model,stop=None):
         from vision import rarity
         stars=rarity(img)
         if stars in (1,2):
-            obs={'anchor':('一星' if stars==1 else '二星')+'心锚','level':None,'rarity':stars,'entries':{},'traits':{},'issues':[],
-                 'image':str(out/'input.png'),'original':str(path),'evidence':str(out),'source':'低星跳过；未做词条OCR'}
+            # A low-star anchor can still be a usable event item. Read the name
+            # only: its entries and values are fixed by the workbook and are
+            # never scored, so the zoom crops are skipped for speed.
+            label='一星' if stars==1 else '二星'
+            from ocr_worker import worker
+            worker(root).request(out/'input.png',out/'ocr.json',stop)
+            raw=json.loads((out/'ocr.json').read_text(encoding='utf-8'))
+            items=[]
+            for block in raw:
+                for x in (block.get('detail') or {}).get('all',[]):
+                    if 'box' in x and x.get('text'):items.append(x)
+            anchor,name,name_issues=parse_name(items,model)
+            def band(lo,hi):return sorted([x for x in items if lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
+            lv=''.join(x['text'].replace(' ','') for x in band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv)
+            level=int(m.group(1)) if m else None
+            known=anchor in (model.get('anchors') or {})
+            obs={'anchor':anchor or label+'心锚','level':level,'rarity':stars,'entries':{},'traits':{},'issues':name_issues,
+                 'image':str(out/'input.png'),'original':str(path),'evidence':str(out),'raw_ocr':items,
+                 'source':(label+'活动心锚；词条数值按原表固定，未做词条OCR' if known else label+'心锚；未做词条OCR')}
             (out/'observation.json').write_text(json.dumps(obs,ensure_ascii=False,indent=2),encoding='utf-8')
             return obs
         img.crop((470,390,520,490)).resize((200,400),Image.Resampling.LANCZOS).save(out/'input.png.zoom.png')
@@ -237,20 +262,31 @@ def recognize(root,path,model,stop=None):
     (out/'observation.json').write_text(json.dumps(obs,ensure_ascii=False,indent=2),encoding='utf-8')
     return obs
 
-def parse_ocr(items,model):
+def parse_name(items,model):
+    """Read the anchor name from the base OCR pass. The leading item icon is
+    low-confidence noise; simplified/traditional OCR variants are resolved
+    against the workbook, and an ambiguous name is never silently mismatched."""
+    anchors=model.get('anchors') or {}
     def band(lo,hi):return sorted([x for x in items if not x.get('zoom') and not x.get('rows_zoom') and lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
     def text(xs):return ''.join(x['text'].replace(' ','') for x in xs)
     name_band=band(60,105);i=0
     while i<len(name_band) and float(name_band[i].get('score',0))<.5:i+=1
     name=text(name_band[i:] if i and i<len(name_band) else name_band)
-    issues=[];found=[a for a in model['anchors'] if a in name]
+    issues=[];found=[a for a in anchors if a in name]
     if len(found)!=1 and name:
         import difflib
-        ranked=sorted(((difflib.SequenceMatcher(None,a,name).ratio(),a) for a in model['anchors']),reverse=True)
+        ranked=sorted(((difflib.SequenceMatcher(None,a,name).ratio(),a) for a in anchors),reverse=True)
         if ranked and ranked[0][0]>=.6 and (len(ranked)<2 or ranked[0][0]-ranked[1][0]>=.1):found=[ranked[0][1]]
     anchor=found[0] if len(found)==1 else name
     if len(found)!=1:issues.append('名称需核对：'+name)
     if any(float(x.get('score',0))<.8 for x in band(60,105) if x['box'][0]>=340):issues.append('名称OCR置信度偏低')
+    return anchor,name,issues
+
+def parse_ocr(items,model):
+    def band(lo,hi):return sorted([x for x in items if not x.get('zoom') and not x.get('rows_zoom') and lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
+    def text(xs):return ''.join(x['text'].replace(' ','') for x in xs)
+    anchor,name,name_issues=parse_name(items,model)
+    issues=list(name_issues)
     lv=text(band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv);level=int(m.group(1)) if m else None
     if not m:issues.append('等级未识别')
     entries={};traits={}

@@ -8,6 +8,8 @@ from scoring import evaluate_dual
 from ocr_worker import OCRWorker,OCRCancelled
 HERE=Path(__file__).resolve().parent
 
+MINIMAL_MODEL={'anchors':{},'characters':[],'characters5':[],'rules':[],'hash':'test'}
+
 class SpeedTests(unittest.TestCase):
  def test_real_two_and_three_stars(self):
   self.assertEqual(vision.rarity(vision.image(HERE/'reference/two-star.png')),2)
@@ -16,17 +18,21 @@ class SpeedTests(unittest.TestCase):
  def test_uncertain_star_shape_not_skipped(self):
   im=vision.image(HERE/'reference/two-star.png');im.paste((0,0,0),(120,326,176,360))
   self.assertIsNone(vision.rarity(im))
- def test_two_star_scan_skips_ocr_and_mark_and_saves_evidence(self):
+ def test_two_star_scan_reads_name_only_and_never_marks(self):
   with tempfile.TemporaryDirectory(dir=HERE) as root:
    b=FakeBridge(root,threading.Event());b.capture=lambda:HERE/'reference/two-star.png'
-   rec=Mock();mark=Mock();rows=[]
+   rows=[]
+   obs={'anchor':'不知名二星心锚','level':None,'rarity':2,'entries':{},'traits':{},'issues':[],'image':str(HERE/'reference/two-star.png')}
    with ExitStack() as s:
     s.enter_context(patch('automation.time.sleep'))
+    s.enter_context(patch('vision.image',side_effect=lambda p:p))
     s.enter_context(patch('vision.grid_cells',return_value=[{'col':0,'y':153}]))
     s.enter_context(patch('vision.selected_cell',return_value=True))
-    s.enter_context(patch('automation.mark_one',mark))
-    automation.run_inventory(root,{}, {},None,b.stop,lambda r,n:rows.append(r),max_items=1,scroll=False,bridge_factory=lambda *a:b,recognizer=rec,apply_marks=True)
-   rec.assert_not_called();mark.assert_not_called();self.assertEqual(rows[0]['action'],'二星跳过')
+    s.enter_context(patch('vision.detail_same',return_value=True))
+    mark=s.enter_context(patch('automation.mark_one'))
+    automation.run_inventory(root,MINIMAL_MODEL,{},None,b.stop,lambda r,n:rows.append(r),max_items=1,scroll=False,bridge_factory=lambda *a:b,recognizer=lambda *a:obs,apply_marks=True)
+   mark.assert_not_called();self.assertEqual(rows[0]['action'],'二星跳过')
+   self.assertEqual(rows[0]['evaluation']['decision'],'跳过')
    self.assertTrue(Path(rows[0]['observation']['image']).is_file())
    self.assertEqual(json.loads((b.folder/'summary.json').read_text(encoding='utf-8'))['skipped_two_star'],1)
  def test_cancelled_worker_never_starts(self):

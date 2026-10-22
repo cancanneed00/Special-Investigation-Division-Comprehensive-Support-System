@@ -66,6 +66,46 @@ class DualTests(unittest.TestCase):
   # 未知/高歧异名称不静默错配，保留人工复核
   o=parse_ocr([{'box':[345,65,120,31],'text':'精雕紫钻钥匙','score':.9}],self.m)
   self.assertTrue(any(s.startswith('名称需核对') for s in o['issues']))
+ def test_low_star_event_anchor_lists_usage_without_scores(self):
+  # 一二星活动心锚：显示原表固定词条与推荐探员，不评数值分与匹配度
+  obs={'anchor':'雀姬奇物','level':1,'rarity':2,'entries':{},'traits':{},'issues':[]}
+  r=evaluate(self.m,obs)
+  self.assertEqual(r['decision'],'活动心锚')
+  self.assertEqual(len(r['matches']),8)
+  self.assertTrue(all(m['no_score'] and m['score'] is None and m['rank'] in (1,2) for m in r['matches']))
+  self.assertIsNone(r['match_score']);self.assertIsNone(r['value_score']);self.assertEqual(r['matches5'],[])
+  self.assertTrue(r['fixed_entries']);self.assertEqual(r['entry_count'],3)
+  self.assertEqual([d['stat'] for d in r['value_details']],['生命','护甲','生命'])
+  self.assertTrue(any('白星' in x for x in r['reasons']))
+  self.assertTrue(any('不评分' in x for x in r['reasons']))
+ def test_one_star_event_anchor_same_treatment(self):
+  r=evaluate(self.m,{'anchor':'雀姬奇物','level':1,'rarity':1,'entries':{},'traits':{},'issues':[]})
+  self.assertEqual(r['decision'],'活动心锚');self.assertTrue(any('一星' in x for x in r['reasons']))
+ def test_low_star_not_in_encyclopedia_skips(self):
+  r=evaluate(self.m,{'anchor':'不知名杂物','level':1,'rarity':2,'entries':{},'traits':{},'issues':[]})
+  self.assertEqual(r['decision'],'跳过');self.assertEqual(r['matches'],[]);self.assertEqual(r['matches5'],[])
+  self.assertTrue(any('不在心锚百科' in x for x in r['reasons']))
+ def test_five_star_recommendations_parsed(self):
+  self.assertEqual(len(self.m['characters5']),21)
+  self.assertEqual([c['name'] for c in self.m['characters5'][:2]],['铃','希尔'])
+  self.assertEqual(self.m['characters5'][-1]['name'],'小拉吉')
+  self.assertTrue(self.m['recommendation_notes5'])
+ def test_five_star_never_influences_six_star(self):
+  o=self.obs();a=evaluate(self.m,o,['犬齿'])
+  b=evaluate(dict(self.m,characters5=[]),o,['犬齿'])
+  self.assertEqual(a['decision'],b['decision']);self.assertEqual(a['match_score'],b['match_score'])
+  self.assertEqual([m['character'] for m in a['matches']],[m['character'] for m in b['matches']])
+  self.assertEqual(b['matches5'],[])
+ def test_five_star_matches_scored_on_their_own(self):
+  a=self.m['anchors']['一万个问题']
+  o={'anchor':'一万个问题','level':1,'rarity':3,'entries':{},'traits':{},'issues':[]}
+  for i in range(1,5):
+   pool=a['pools'].get(str(i)) or []
+   if pool:o['entries'][str(i)]={'stat':pool[0],'value':'5','unit':'percent' if pool[0].endswith('%') else 'flat','star':True}
+  r=evaluate(self.m,o)
+  self.assertTrue(r['matches5'])
+  self.assertTrue(all(m['score'] is not None and not m.get('no_score') for m in r['matches5']))
+  self.assertIn('小拉吉',[m['character'] for m in r['matches5']])
  def test_unknown_not_absent(self):
   o=self.obs(3);o['presence'].pop('4');self.assertEqual(evaluate(self.m,o)['decision'],'跳过复核')
  def test_independent_scores(self):

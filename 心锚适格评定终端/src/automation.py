@@ -1,8 +1,8 @@
 """Constrained inventory navigation. Only lock and discard markers may be changed."""
-import json,time,threading,subprocess,queue,uuid,os,shutil
+import json,time,threading,subprocess,queue,uuid,os
 from pathlib import Path
 from engine import recognize,evaluate
-import vision
+import vision,interference
 from history import atomic_json
 
 class Stopped(Exception):pass
@@ -34,6 +34,7 @@ class Bridge:
     if result.get('id')!=self.serial:continue
     if not result.get('ok'):raise RuntimeError(result.get('error','游戏驱动错误'))
     stat=self.metrics.setdefault(op,{'count':0,'seconds':0});stat['count']+=1;stat['seconds']+=time.perf_counter()-started
+    interference.POINTER.commit()  # the driver's own cursor motion is the expected state
     return result['result']
    except queue.Empty:
     if self.proc.poll() is not None:raise RuntimeError('游戏驱动意外退出，请查看整理记录')
@@ -130,6 +131,29 @@ def recover_overlap(b,oldim,oldcells,newpath,progress):
   if n is not None:return n,newpath
  return None,newpath
 
+def restore_selection(b,cell,pointer,progress):
+ # A pointer nudge (or a transient frame change) can break the short
+ # confirmation window. Wait it out, re-check the frames, and re-select this
+ # same cell at most once through the whitelisted RPC. Never re-marks.
+ def quick():
+  p=b.capture();a=vision.image(p)
+  for _ in range(10):
+   b.check();time.sleep(.2);q=b.capture();im=vision.image(q)
+   if vision.selected_cell(im,cell['col'],cell['y']) and vision.detail_same(a,im):return q,im
+   a=im
+  return None,None
+ for round_no in (1,2,3):
+  progress(f'选中或详情校验未通过：等待复检（第 {round_no}/3 次，{pointer.describe()}）')
+  time.sleep(.6)
+  p,im=quick()
+  if p is not None:return p,im
+  if round_no==2:
+   progress('选中状态仍未恢复：重新发送一次选择点击（仅选择，不含标记）')
+   base=b.capture()
+   b.rpc('select',col=cell['col'],y=cell['y'],guard=b.guard(base,False))
+   pointer.commit()
+ return None,None
+
 def save_navigation_failure(b,oldim,newim,oldcells,newcells,count):
  # At most two diagnostic frames per failed run, included in the image budget.
  oldim.save(b.folder/'navigation-before.png');newim.save(b.folder/'navigation-after.png')
@@ -144,7 +168,7 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
  mutex=lockpath.open('a+b');mutex.seek(0);mutex.write(b'0');mutex.flush();mutex.seek(0)
  try:msvcrt.locking(mutex.fileno(),msvcrt.LK_NBLCK,1)
  except OSError:mutex.close();raise RuntimeError('另一个心锚终端正在整理')
- b=None;records=[];reason='当前页已处理';skip_rows=0;progress=progress or (lambda text:None);started=time.perf_counter();skipped_two=0
+ b=None;records=[];reason='当前页已处理';skip_rows=0;progress=progress or (lambda text:None);started=time.perf_counter()
  parent=None;start_boundary=None
  if resume:
   policy=resume.get('policy') or policy;selected=resume.get('selected');apply_marks=resume['apply_marks']
@@ -155,6 +179,7 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
    save_checkpoint(b,im,cell,len(records),policy,selected,apply_marks,parent)
  try:
   b=bridge_factory(root,stop)
+  interference.POINTER.commit()
   if resume:
    from resume_scan import selected_boundary
    start_boundary=selected_boundary(vision.image(b.capture()),resume,resume.get('manual',False))
@@ -162,8 +187,9 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
   elif scroll:
    prepare_level_order(b,progress)
    rewind_inventory(b,progress)
-  page=0
+  page=0;stall=0
   while len(records)<max_items:
+   before=len(records)
    b.check();path=b.capture();im=vision.image(path);cells=vision.grid_cells(im)
    ys=sorted({c['y'] for c in cells})
    if not cells:raise RuntimeError('未识别到完整心锚格子，请切换为默认仓库网格视图')
@@ -178,24 +204,19 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
     current=b.capture()
     if not vision.selected_cell(vision.image(current),cell['col'],cell['y']):
      b.rpc('select',col=cell['col'],y=cell['y'],guard=b.guard(current,False))
+     interference.POINTER.commit()
     time.sleep(.3);first=b.capture();a=vision.image(first)
     for attempt in range(10):
      b.check();time.sleep(.2);second=b.capture();z=vision.image(second)
      if vision.selected_cell(z,cell['col'],cell['y']) and vision.detail_same(a,z):break
      a=z
-    else:raise RuntimeError('点击后选中框或详情在2秒内未稳定，停止整理')
-    rarity=vision.rarity(z)
-    if rarity in (1,2) and vision.rarity(a)==rarity:
-     # No word OCR, no score, no lock/discard. Record the skip for audit/history.
-     skipped_two+=1
-     evidence=Path(root)/'数据'/'识别记录'/uuid.uuid4().hex/'input.png'
-     evidence.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(second,evidence)
-     label='一星' if rarity==1 else '二星'
-     obs={'anchor':label+'心锚','level':None,'rarity':rarity,'entries':{},'traits':{},'issues':[], 'image':str(evidence),'source':'连续两帧星级校验；未做词条OCR'}
-     obs['evidence']=str(evidence.parent)
-     ev={'decision':'跳过','reasons':[label+'心锚直接跳过'],'value_score':None,'value_range':None,'value_details':[],'entry_count':0,'matches':[],'match_score':None,'eligible_matches':[]}
-     row={'page':page,'cell':cell,'observation':obs,'evaluation':ev,'action':label+'跳过','ocr_seconds':0}
-     records.append(row);atomic_json(b.folder/'results.json',records);checkpoint(z,cell);notify(row,len(records));continue
+    else:
+     # A nudge of the physical mouse used to abort the run on the first failed
+     # confirmation window. Wait it out, re-check, re-select once, then decide.
+     second,z=restore_selection(b,cell,interference.POINTER,progress)
+     if second is None:raise RuntimeError('选中框或详情多次等待与重选后仍未稳定（疑似鼠标被移动），已停止整理')
+    # Low-star anchors are no longer pre-skipped: a name-only OCR pass inside
+    # recognize() can still surface a usable event anchor from the workbook.
     progress(f'第 {page+1} 页：识别并评分第 {len(records)+1} 件');ocr_started=time.perf_counter()
     if recognizer is recognize:
      from ocr_worker import OCRCancelled
@@ -203,11 +224,27 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
      except OCRCancelled:raise Stopped('用户已停止')
     else:obs=recognizer(root,second,model)
     ocr_seconds=time.perf_counter()-ocr_started;b.check();ev=evaluate(model,obs,selected,policy)
-    if obs.get('level')!=1:
+    if obs.get('level')!=1 and obs.get('rarity') not in (1,2):
      ev.update(decision='跳过',reasons=['仓库仅处理1级；其他等级仅支持单件预览'])
     fresh=b.capture()
-    if not vision.detail_same(z,vision.image(fresh)):raise RuntimeError('评分期间选择发生变化，停止整理')
-    action=(mark_one(b,fresh,ev['decision'],cell) if obs.get('level')==1 else '跳过非1级') if apply_marks else '仅评分：'+ev['decision']
+    if not vision.detail_same(z,vision.image(fresh)):
+     # Pointer interference during scoring can unseat the selection. Wait it
+     # out, then re-select the same cell and require the scored frame back.
+     recovered=False
+     for round_no in (1,2):
+      progress(f'评分期间检测到选择变化：等待复检（第 {round_no}/2 次，{interference.POINTER.describe()}）')
+      time.sleep(.6);fresh=b.capture()
+      if vision.detail_same(z,vision.image(fresh)):recovered=True;break
+     if not recovered:
+      q,im=restore_selection(b,cell,interference.POINTER,progress)
+      if q is None or not vision.detail_same(z,im):
+       raise RuntimeError('评分期间选择发生变化，等待与重选后仍无法确认原心锚（疑似鼠标被移动），已停止整理')
+      fresh=q
+    if obs.get('rarity') in (1,2):
+     # Event anchors keep their fixed value: never send a lock or discard marker.
+     action=('活动心锚 · 可保留使用' if ev['decision']=='活动心锚' else ('一星跳过' if obs['rarity']==1 else '二星跳过')) if apply_marks else '仅评分：'+ev['decision']
+    else:
+     action=(mark_one(b,fresh,ev['decision'],cell) if obs.get('level')==1 else '跳过非1级') if apply_marks else '仅评分：'+ev['decision']
     row={'page':page,'cell':cell,'observation':obs,'evaluation':ev,'action':action,'ocr_seconds':round(ocr_seconds,3)}
     records.append(row);atomic_json(b.folder/'results.json',records)
     checkpoint(vision.image(b.capture()) if apply_marks and action.endswith('成功') else vision.image(fresh),cell)
@@ -234,6 +271,10 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
     n,newpath=recover_overlap(b,oldim,oldcells,newpath,progress)
     if n is None:reason='翻页重叠行无法唯一确认，回退恢复未成功；已保存翻页诊断画面，停止以避免漏处理';break
    skip_rows=n;page+=1
+   if len(records)==before:
+    stall+=1
+    if stall>=2:reason='已到达列表末尾（连续多页无新内容）';break
+   else:stall=0
   if len(records)>=max_items:reason='达到本轮数量上限'
   return {'count':len(records),'reason':reason,'folder':str(b.folder)}
  except Stopped:
@@ -244,7 +285,7 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
   if b:
    try:
     if parent:(b.folder/'continuation.json').write_text(json.dumps(parent,ensure_ascii=False,indent=2),encoding='utf-8')
-    (b.folder/'summary.json').write_text(json.dumps({'count':len(records),'reason':reason,'apply_marks':apply_marks,'continuous':scroll,'skipped_low_star':skipped_two,'skipped_one_star':sum(r['observation'].get('rarity')==1 for r in records),'skipped_two_star':sum(r['observation'].get('rarity')==2 for r in records),'elapsed_seconds':round(time.perf_counter()-started,3),'rpc_timing':getattr(b,'metrics',{}),'ocr_seconds':round(sum(r.get('ocr_seconds',0) for r in records),3)},ensure_ascii=False,indent=2),encoding='utf-8')
+    (b.folder/'summary.json').write_text(json.dumps({'count':len(records),'reason':reason,'apply_marks':apply_marks,'continuous':scroll,'skipped_low_star':sum(1 for r in records if r['observation'].get('rarity') in (1,2) and r['evaluation'].get('decision')=='跳过'),'skipped_one_star':sum(1 for r in records if r['observation'].get('rarity')==1 and r['evaluation'].get('decision')=='跳过'),'skipped_two_star':sum(1 for r in records if r['observation'].get('rarity')==2 and r['evaluation'].get('decision')=='跳过'),'event_anchors':sum(1 for r in records if r['observation'].get('rarity') in (1,2) and r['evaluation'].get('decision')!='跳过'),'elapsed_seconds':round(time.perf_counter()-started,3),'rpc_timing':getattr(b,'metrics',{}),'ocr_seconds':round(sum(r.get('ocr_seconds',0) for r in records),3)},ensure_ascii=False,indent=2),encoding='utf-8')
    finally:b.close()
    if isinstance(b,Bridge):
     from history import archive,clear_run_temporaries,prune

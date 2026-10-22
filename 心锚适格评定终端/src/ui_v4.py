@@ -79,8 +79,11 @@ def build_scan(a):
 
 def brief(ev):
  reasons=ev.get('reasons',[])
- if '二星心锚直接跳过' in reasons:return '二星跳过 · 不识别词条'
- if '一星心锚直接跳过' in reasons:return '一星跳过 · 不识别词条'
+ if ev.get('decision')=='活动心锚':
+  names=list(dict.fromkeys(m['character'] for m in ev.get('matches',[])))
+  return '活动心锚 · 可保留使用'+(('（'+names[0]+(' 等'+str(len(names))+'人' if len(names)>1 else '')+'推荐）') if names else '（暂无探员推荐）')
+ if '二星心锚直接跳过' in reasons:return '二星跳过 · 不在百科'
+ if '一星心锚直接跳过' in reasons:return '一星跳过 · 不在百科'
  if ev.get('decision')=='锁定':
   eligible=ev.get('eligible_matches',[])
   if any('直接保留' in r for r in reasons):return '高数值直接保留'
@@ -92,6 +95,7 @@ def brief(ev):
  return '匹配达标但档位不足' if any('匹配分达标' in r for r in reasons) else '未达保留，也未达放弃'
 
 def gate_brief(m):
+ if m.get('no_score'):return '推荐使用 · 不评分'
  if m.get('gate_pass') is True:return '档位通过'
  failed=[c['label']+('待复核' if c['pass'] is None else '未达标') for c in m.get('gate_checks',[]) if c['pass'] is not True]
  return ' / '.join(failed) or '待复核'
@@ -102,9 +106,10 @@ def all_match_details(e):
  eligible={(m['character'],m['rank']) for m in e.get('eligible_matches',[])}
  for m in e.get('matches',[]):
   lines.append('\n【'+m['character']+'】')
-  for c in m.get('alternatives',[m]):
+  for c in m.get('alternatives') or [m]:
    label='满足推荐保留' if (m['character'],c['rank']) in eligible else '未满足推荐保留'
-   lines.append(f"推荐 {c['rank']} · 匹配 {c['score']:g} 分 · {label}")
+   if c.get('score') is None:lines.append(f"推荐 {c['rank']} · 活动心锚不评分 · {label}")
+   else:lines.append(f"推荐 {c['rank']} · 匹配 {c['score']:g} 分 · {label}")
    for d in c.get('details',[]):
     lines.append(d['label']+'：'+d['actual']+'；推荐 '+d['recommend']+('（特性仅供参考）' if d['label'].startswith('特性') else ''))
    for check in c.get('gate_checks',[]):
@@ -159,9 +164,11 @@ HELP=[('评分公式与参考阈值','数值 Q = 100 × Σ(wᵢ × 当前值ᵢ/
 
 HELP.insert(2,('扫描速度与二星跳过','仓库扫描先用连续两帧确认星级；二星直接跳过词条OCR、评分和标记，结果中显示“二星跳过”。星级不明确时继续正常识别。\nOCR模型在本次程序运行中复用，识别任务串行处理，避免多进程争抢普通电脑的CPU与内存。稳定性截图不重复进行文字OCR；每次游戏输入仍验证仓库界面和画面变化。\n回车可停止识别，异常时终止OCR进程，下次识别自动重建。整理记录的summary.json记录总耗时、OCR耗时、跳过二星数量及各类操作耗时，便于定位不同电脑的瓶颈。'))
 
-HELP[2]=('低星跳过与扫描速度','一星、二星均跳过词条识别、评分和标记；仓库用连续两帧确认星级，单张截图也支持低星跳过。星级不明确时继续正常识别。\n网格支持三星蓝边、二星绿边、一星灰边；不会仅因进入低星区域而判定列表不稳定。详细依据列出全部推荐探员及每个方案的匹配和保留条件。\nOCR模型在本次运行中复用，识别任务串行处理。稳定性截图不重复做文字OCR，每次游戏输入仍校验画面。回车可停止，异常后下次识别自动重建进程。\nsummary.json记录总耗时、OCR耗时、一星和二星跳过数量及操作耗时。')
+HELP[2]=('低星活动心锚与扫描速度','一星、二星先做仅名称的轻量识别：名字落在心锚百科中的活动心锚（如雀姬奇物）会显示原表固定词条和推荐它的探员，不评数值分与匹配度，也不会被自动锁定或放弃；不在百科的低星心锚直接跳过，不识别词条。星级不明确时继续正常识别。\n网格支持三星蓝边、二星绿边、一星灰边；不会仅因进入低星区域而判定列表不稳定。详细依据列出全部推荐探员及每个方案的匹配和保留条件。\nOCR模型在本次运行中复用，识别任务串行处理。稳定性截图不重复做文字OCR，每次游戏输入仍校验画面。回车可停止，异常后下次识别自动重建进程。\nsummary.json记录总耗时、OCR耗时、一星和二星跳过数量、活动心锚数量及操作耗时。')
 
 HELP.insert(3,('翻页定位与断点续扫','翻页定位失败或停止后，点击“断点 / 手动续扫”。程序会显示最后完成项和继续模式。\n自动续扫要求最后完成项仍被选中，校验通过后从下一件开始；手动续扫要求你选中第一件未处理心锚，并使它完整可见，从该件开始。\n续扫不返回顶部，结果另存并关联前一轮。保持低等级优先排序；无法确认起点时取消，不按心锚名称猜位置。'))
+
+HELP.insert(4,('五星角色心锚推荐','五星角色心锚推荐表与六星同格式解析，使用相同的匹配与档位规则。结果只在“详细依据”的“五星探员推荐”页显示，优先级低于六星，仅供参考：不参与锁定、标记放弃的判断，也不计入最高匹配分。该页仅在当前心锚存在五星推荐时出现。'))
 
 def show_rules(a):
  t=a.rules_text;t.configure(state='normal');t.delete('1.0','end')
@@ -173,6 +180,11 @@ def show_detail(a):
  sel=a.results.selection()
  if not sel or not a.result:return
  m=a.result['matches'][int(sel[0])];t=a.detail;t.configure(state='normal');t.delete('1.0','end')
+ if m.get('no_score'):
+  t.insert('end',m['character']+'  ·  推荐'+str(m['rank'])+'  ·  活动心锚不评分\n','heading')
+  t.insert('end',m['reason']+'\n')
+  if m['note']:t.insert('end','配装备注：'+m['note']+'\n','muted')
+  t.configure(state='disabled');return
  t.insert('end',m['character']+'  ·  词条匹配 '+str(m['score'])+' 分\n','heading')
  for d in m['details']:
   trait=d['label'].startswith('特性');t.insert('end',d['label']+'  '+d['actual']+'\n','bold');t.insert('end','推荐：'+d['recommend']+('  [仅供参考，不计分]' if trait else '  ·  符合度 '+str(d['match'])+'%')+'\n')

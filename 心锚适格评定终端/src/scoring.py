@@ -141,13 +141,78 @@ def decide(quality,choices,policy,issues=(),value_range=None):
   return '跳过',best['character']+'匹配分达标，但保留条件未通过：'+best['reason']
  return '跳过','未满足推荐保留条件，也未命中独立低质量筛选'
 
+def usage_row(ch,rec,label):
+ """A recommendation without any score: event anchors have fixed values."""
+ reason=label+'活动心锚，固定词条数值，不评分'
+ return {'character':ch['name'],'rank':rec['rank'],'score':None,'no_score':True,'state':'推荐使用',
+         'reasons':[reason],'details':[],'note':ch['note'],'gate_pass':None,'gate_checks':[],'alternatives':[],'reason':reason}
+
+def character_matches(model,characters,anchor,rows,traits,evidence,selected,policy):
+ """Per-character best recommendation plus every scored alternative."""
+ per_character=[];all_choices=[]
+ for ch in characters:
+  if selected and ch['name'] not in selected:continue
+  recs=[r for r in ch['recs'] if r['active'] and r['anchor']==anchor['name'] and r['slot']==anchor['slot']]
+  if not recs:continue
+  choices=[]
+  for rec in recs:
+   num=den=0;details=[]
+   for e in rec['entries']:
+    key=str(e['idx']);is_entry=e['kind']=='entry';obj=rows.get(key) if is_entry else traits.get(key)
+    actual=obj['stat'] if is_entry and obj else obj if not is_entry else None
+    legal=anchor['pools'][key] if is_entry else anchor['traits'][key]
+    p,_=preference(e,actual,legal)
+    important=any(t['bold'] or t['red'] for t in e['tokens']);red=any(t['red'] for t in e['tokens'])
+    weight=0 if e['all_equal'] or not is_entry else (5 if red else 3 if important else 1)*(1 if len(legal)>1 else .25)
+    # Numeric magnitudes, star tiers and min/max direction intentionally do not affect affinity.
+    num+=weight*p;den+=weight
+    details.append({'label':('词条' if is_entry else '特性')+key,'actual':actual or '无','recommend':e['raw'],
+                    'weight':weight,'match':round(p*100,2),'source':e['source']})
+   gate,checks=recommendation_gate(rec,anchor,rows,traits,evidence,ch['note'],policy['keep'])
+   failed=[x['label']+'：'+x['reason']+('（档位未确定）' if x['pass'] is None else '（未通过）') for x in checks if x['pass'] is not True]
+   choices.append({'character':ch['name'],'score':round(num/den*100,2) if den else 0,'rank':rec['rank'],
+                   'details':details,'note':ch['note'],'gate_pass':gate,'gate_checks':checks,
+                   'reason':'；'.join(failed) if failed else '重要词条、红字词条和 min 条件通过（特性仅供参考）'})
+  all_choices.extend(choices)
+  best=max(choices,key=lambda r:(r['score'],-r['rank']))
+  # Keep the highest affinity visible, but preserve an eligible alternative recommendation.
+  per_character.append(dict(best,alternatives=choices))
+ per_character.sort(key=lambda x:-x['score'])
+ return per_character,all_choices
+
 def evaluate_dual(model,obs,selected=None,policy=None):
  policy=validate_policy(policy or DEFAULT_POLICY)
  anchor=model['anchors'].get(obs.get('anchor'));issues=[s for s in obs.get('issues',[]) if not s.startswith('特性')]
  base={'value_score':None,'value_range':None,'value_details':[],'entry_count':sum(bool(x) for x in obs.get('entries',{}).values()),
-       'matches':[],'match_score':None,'decision':'跳过复核','reasons':issues,'value_notes':[],'rule_hash':model['hash'],'policy':policy}
+       'matches':[],'matches5':[],'match_score':None,'decision':'跳过复核','reasons':issues,'value_notes':[],'rule_hash':model['hash'],'policy':policy}
  if obs.get('rarity') in (1,2):
-  base.update(decision='跳过',reasons=[('一星' if obs['rarity']==1 else '二星')+'心锚直接跳过']);return base
+  label='一星' if obs['rarity']==1 else '二星'
+  if anchor:
+   # Event anchors carry fixed entries and values: nothing is scored and no
+   # marker is ever sent, but a workbook entry means the item is worth keeping.
+   usage=[];usage5=[]
+   for ch in model['characters']:
+    if selected and ch['name'] not in selected:continue
+    for r in ch['recs']:
+     if r['active'] and r['anchor']==anchor['name'] and r['slot']==anchor['slot']:usage.append(usage_row(ch,r,label))
+   for ch in model.get('characters5') or []:
+    if selected and ch['name'] not in selected:continue
+    for r in ch['recs']:
+     if r['active'] and r['anchor']==anchor['name'] and r['slot']==anchor['slot']:usage5.append(usage_row(ch,r,label))
+   base.update(decision='活动心锚',matches=usage,matches5=usage5,match_score=None)
+   names='、'.join(dict.fromkeys(m['character'] for m in usage))
+   base['reasons']=[label+'活动心锚：词条数值按原表固定，不评分、不自动标记，建议保留备用',
+                    '六星推荐使用：'+(names+'（共 '+str(len(usage))+' 个方案）' if usage else '暂无')]
+   details=[]
+   for i in range(1,5):
+    pool=anchor['pools'].get(str(i)) or []
+    if pool:details.append({'position':i,'stat':' / '.join(pool),'value':None,'unit':None,'tier':'固定词条','tier_candidates':[],'score_range':None,'star':None,'basis':'活动心锚固定词条，按原表展示，不评分'})
+   base['value_details']=details;base['entry_count']=len(details);base['fixed_entries']=True
+   traits=[t for k in ('1','2') for t in anchor['traits'].get(k,[]) if t]
+   base['trait_notes']=['特性（按原表，仅供参考）：'+' / '.join(traits)] if traits else []
+  else:
+   base.update(decision='跳过',reasons=[label+'心锚直接跳过（不在心锚百科，无需处理）'])
+  return base
  if obs.get('level') not in (1,30):
   base.update(decision='跳过' if isinstance(obs.get('level'),int) else '跳过复核',reasons=['仅支持1级或30级评分；仓库仅处理1级']);return base
  if obs.get('level')==30:
@@ -198,36 +263,10 @@ def evaluate_dual(model,obs,selected=None,policy=None):
   v=traits.get(key)
   if v and v not in anchor['traits'][key]:base['trait_notes'].append('特性'+key+'不在候选池（仅标注）')
   if not v and anchor['traits'][key] and obs.get('trait_presence',{}).get(key)!='absent':base['trait_notes'].append('特性'+key+'未确定（不影响评分）')
- for ch in model['characters']:
-  if selected and ch['name'] not in selected:continue
-  recs=[r for r in ch['recs'] if r['active'] and r['anchor']==anchor['name'] and r['slot']==anchor['slot']]
-  if not recs:
-   continue
-  choices=[]
-  for rec in recs:
-   num=den=0;details=[]
-   for e in rec['entries']:
-    key=str(e['idx']);is_entry=e['kind']=='entry';obj=rows.get(key) if is_entry else traits.get(key)
-    actual=obj['stat'] if is_entry and obj else obj if not is_entry else None
-    legal=anchor['pools'][key] if is_entry else anchor['traits'][key]
-    p,_=preference(e,actual,legal)
-    important=any(t['bold'] or t['red'] for t in e['tokens']);red=any(t['red'] for t in e['tokens'])
-    weight=0 if e['all_equal'] or not is_entry else (5 if red else 3 if important else 1)*(1 if len(legal)>1 else .25)
-    # Numeric magnitudes, star tiers and min/max direction intentionally do not affect affinity.
-    num+=weight*p;den+=weight
-    details.append({'label':('词条' if is_entry else '特性')+key,'actual':actual or '无','recommend':e['raw'],
-                    'weight':weight,'match':round(p*100,2),'source':e['source']})
-   gate,checks=recommendation_gate(rec,anchor,rows,traits,evidence,ch['note'],policy['keep'])
-   failed=[x['label']+'：'+x['reason']+('（档位未确定）' if x['pass'] is None else '（未通过）') for x in checks if x['pass'] is not True]
-   choices.append({'character':ch['name'],'score':round(num/den*100,2) if den else 0,'rank':rec['rank'],
-                   'details':details,'note':ch['note'],'gate_pass':gate,'gate_checks':checks,
-                   'reason':'；'.join(failed) if failed else '重要词条、红字词条和 min 条件通过（特性仅供参考）'})
-  all_choices.extend(choices)
-  best=max(choices,key=lambda r:(r['score'],-r['rank']))
-  # Keep the highest affinity visible, but preserve an eligible alternative recommendation.
-  best=dict(best,alternatives=choices)
-  base['matches'].append(best)
- base['matches'].sort(key=lambda x:-x['score'])
+ base['matches'],all_choices=character_matches(model,model['characters'],anchor,rows,traits,evidence,selected,policy)
+ # Five-star recommendations use the same table layout and scoring, but stay on
+ # their own page and never influence lock/discard decisions.
+ base['matches5'],choices5=character_matches(model,model.get('characters5') or [],anchor,rows,traits,evidence,selected,policy)
  if base['matches']:base['match_score']=base['matches'][0]['score']
  issues[:]=list(dict.fromkeys(issues))
  base['quality_filter']=quality_filter(obs,evidence,policy['discard'])
