@@ -240,10 +240,14 @@ def recognize(root,path,model,stop=None):
 def parse_ocr(items,model):
     def band(lo,hi):return sorted([x for x in items if not x.get('zoom') and not x.get('rows_zoom') and lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
     def text(xs):return ''.join(x['text'].replace(' ','') for x in xs)
-    issues=[];name=text(band(60,105));found=[a for a in model['anchors'] if a in name]
+    name_region=[x for x in band(60,105) if x['box'][0]>=340]
+    issues=[];name=text(name_region);found=[a for a in model['anchors'] if a in name]
+    if len(found)!=1:
+        trimmed=text([x for x in name_region if float(x.get('score',0))>=.5])
+        if trimmed and trimmed!=name:name=trimmed;found=[a for a in model['anchors'] if a in name]
     anchor=found[0] if len(found)==1 else name
     if len(found)!=1:issues.append('名称需核对：'+name)
-    if any(float(x.get('score',0))<.8 for x in band(60,105) if x['box'][0]>=340):issues.append('名称OCR置信度偏低')
+    if any(float(x.get('score',0))<.8 for x in name_region):issues.append('名称OCR置信度偏低')
     lv=text(band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv);level=int(m.group(1)) if m else None
     if not m:issues.append('等级未识别')
     entries={};traits={}

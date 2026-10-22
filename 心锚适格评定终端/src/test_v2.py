@@ -48,6 +48,13 @@ class DualTests(unittest.TestCase):
   o=parse_ocr(items,self.m);self.assertEqual(o['entries']['1']['value'],'38');self.assertNotIn('词条1OCR置信度偏低',o['issues'])
   items[-1]['text']='41';items[2]['score']=items[3]['score']=.99
   self.assertIn('词条1两次OCR结果不一致',parse_ocr(items,self.m)['issues'])
+ def test_name_icon_prefix_stripped(self):
+  # 心锚名称前带一个小图标（低置信度、位于名称文本区左侧），不得污染名称识别
+  items=[{'box':[312,64,27,33],'text':'全','score':.10},
+         {'box':[347,63,109,34],'text':'宝藏挂坠','score':1}]
+  o=parse_ocr(items,self.m)
+  self.assertEqual(o['anchor'],'宝藏挂坠')
+  self.assertFalse([s for s in o['issues'] if s.startswith('名称需核对')])
  def test_unknown_not_absent(self):
   o=self.obs(3);o['presence'].pop('4');self.assertEqual(evaluate(self.m,o)['decision'],'跳过复核')
  def test_independent_scores(self):
