@@ -6,7 +6,7 @@ from pathlib import Path
 
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
-from engine import import_workbook,catalog_people
+from engine import import_workbook,catalog_people,anchor_recommendations
 
 def find_book():
     for cand in [HERE.parent/'表格',
@@ -110,11 +110,18 @@ try:
     assert app.people.size()>=len(model['anchors'])
     print('OK anchor mode relabels the picker to 推荐来源 and resets the filter')
 
-    # the anchor-side source filter still works through the shared control
+    # the anchor-side source filter still works through the shared control.
+    # Select an anchor that really carries six-star rows: the workbook is
+    # maintained externally, so list order and per-anchor rows change over time
+    # and the assertion must not depend on whichever anchor happens to be first.
+    labels=[app.people.get(i) for i in range(app.people.size())]
+    target=next(n for n in labels if anchor_recommendations(model,n)[0])
+    app.people.selection_clear(0,'end');app.people.selection_set(labels.index(target))
+    app.catalog_select();app.update_idletasks()
     app.anchor_filter.set('仅六星');app.show_anchor();app.update_idletasks()
     six_head=[t for t in body_texts() if t.startswith('六星探员推荐')]
     five_head=[t for t in body_texts() if t.startswith('五星探员推荐')]
-    assert six_head and not five_head,'only-six keeps working in anchor mode'
+    assert six_head and not five_head,'only-six keeps working in anchor mode (%s)'%target
     print('OK shared picker still filters recommendations in anchor mode')
 
     # and back again: character view survives the round-trip

@@ -6,7 +6,7 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.9'
+VERSION='0.6.10'
 IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()

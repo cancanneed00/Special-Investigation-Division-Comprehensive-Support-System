@@ -1,6 +1,7 @@
 import sys,os,json,threading,queue,traceback
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
+import tcl_env  # 必须早于任何 import tkinter：固定随包 Tcl/Tk，避免与系统版本冲突
 import tkinter as tk
 from tkinter import ttk,filedialog,messagebox
 from PIL import Image,ImageTk

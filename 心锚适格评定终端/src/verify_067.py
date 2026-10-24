@@ -48,9 +48,12 @@ print('OK anchor_recommendations splits the two sheets for',len(names),'anchors'
 print('   sample: both =',both,'| six-only =',only6,'| five-only =',only5,'| none =',none)
 
 six,five=anchor_recommendations(model,'雀姬奇物')
-assert len(six)==8 and five==[]
+# The workbook is maintained externally, so the row count for a given anchor
+# changes between releases; assert the invariant (event anchors are six-star
+# only) rather than a hard-coded total.
+assert six and five==[]
 assert [c['name'] for c,_ in six][:3]
-print('OK 雀姬奇物: 8 six-star recommendations, no five-star rows')
+print('OK 雀姬奇物: %d six-star recommendations, no five-star rows'%len(six))
 
 # --- headless UI --------------------------------------------------------------
 import desktop,ui_v4

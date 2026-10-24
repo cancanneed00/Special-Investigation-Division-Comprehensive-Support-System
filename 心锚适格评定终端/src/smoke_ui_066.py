@@ -4,7 +4,7 @@ import sys,json
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
-from engine import Store,import_workbook,evaluate
+from engine import Store,import_workbook,evaluate,anchor_recommendations
 import desktop,ui_v4
 
 ROOT=HERE.parent
@@ -32,13 +32,26 @@ try:
     ev=evaluate(model,obs)
     app.display(obs,ev)
     assert app.result['matches5'],'five-star matches expected'
+    # the results table lists six-star matches only. 一万个问题 is five-star only
+    # in the current workbook, so require the row count to track the matches
+    # instead of demanding rows -- rendering is covered just below with an
+    # anchor that does carry six-star recommendations.
     kids=app.results.get_children()
-    assert kids
+    assert len(kids)==len(ev['matches']),(len(kids),len(ev['matches']))
     app.show_detail()
     ui_v4.open_details(app);app.update_idletasks()
     detail=[t for t in app.winfo_children()]
     app.update()
     print('OK five-star anchor: scan page rendered, details dialog opened')
+
+    # the scan table really renders rows: pick an anchor that carries six-star
+    # recommendations (the workbook is maintained externally, so never hard-code one)
+    six_name=next(n for n in model['anchors'] if anchor_recommendations(model,n)[0])
+    obs6={'anchor':six_name,'level':1,'rarity':3,'entries':{},'traits':{},'issues':[],'image':str(book)}
+    ev6=evaluate(model,obs6)
+    app.display(obs6,ev6)
+    assert app.results.get_children(),'results table renders six-star rows (%s)'%six_name
+    print('OK results table renders six-star rows for',six_name)
 
     # 2) event anchor: unscored rows, fixed entries, no crash on selection
     obs2={'anchor':'雀姬奇物','level':1,'rarity':2,'entries':{},'traits':{},'issues':[],'image':str(book)}
