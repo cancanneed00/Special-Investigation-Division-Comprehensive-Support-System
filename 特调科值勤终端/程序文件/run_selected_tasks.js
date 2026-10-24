@@ -30,6 +30,13 @@ function status(value) {
   }
   return published;
 }
+// 启动检查发现不在主界面时给出的失败说明。抽成函数以便直接断言：
+// 这是最常见的启动失败，文案必须明确告诉用户“要在主界面开始运行”。
+function homeStartFailure(detail,cause) {
+  const failure=new Error(`未在游戏主界面，无法开始运行。请在点击“开始执勤”前，先让游戏停留在主界面（大厅：可见 招募 / 补给站 / 事务所 / 探员 / 心锚 / 作战 等入口），不要停留在登录页、加载页或任何二级页面。${detail}诊断截图位于程序文件/启动检查_操作前.png 与 启动检查_失败.png`,cause?{cause}:undefined);
+  failure.code='HOME_NOT_CONFIRMED';
+  return failure;
+}
 function plan(config) {
   if (!Array.isArray(config.tasks) || !config.tasks.length) throw new Error('请至少选择一项任务');
   if (config.tasks.some(id => !TASKS.some(t => t[0]===id))) throw new Error('存在未知任务');
@@ -90,8 +97,16 @@ async function main() {
       await v.wait(()=>v.home(),'启动时主界面', {timeout:12000});
     } catch(error) {
       try {await v.capture(path.join(ROOT,'启动检查_失败.png'));}catch(captureError){console.log('启动截图保存失败：'+captureError.message);}
-      console.log('启动主页未确认：请先让游戏进入含招募、补给站、事务所等菜单的主界面；诊断截图位于程序文件/启动检查_操作前.png 与 启动检查_失败.png');
-      throw error;
+      // 主页未确认是最常见的启动失败，必须说清“要在主界面开始运行”，并回读当前画面
+      // 让用户知道自己停在哪一页（识别到了哪些菜单、还缺哪些），而不是只给一句超时。
+      const {homeMenu,menuSummary}=require('./lib/home-menu');
+      let detail='当前画面未识别到任何主界面菜单项。';
+      try {
+        const summary=menuSummary(await homeMenu(v));
+        if(summary.found.length)detail=`当前画面识别到 ${summary.found.join('、')}，缺少 ${summary.missing.join('、')}。`;
+      } catch(menuError) { detail=`无法读取当前画面菜单：${menuError.message}。`; }
+      console.log(`启动主页未确认：${detail}`);
+      throw homeStartFailure(detail,error);
     }
     status({state:'running',current:'验证后台点击：进入商店并返回主页'});
     await v.capture(path.join(ROOT,'后台输入检查_操作前.png'));
@@ -160,4 +175,4 @@ if(require.main===module && process.env.ECHOES_WORKER!=='1' && !process.argv.inc
   fs.appendFileSync(LOG,`\n运行停止：${error.stack||error}\n`);
   console.error(error);process.exit(stopped?0:2);
 });
-module.exports={main,plan,TASKS};
+module.exports={main,plan,TASKS,homeStartFailure};

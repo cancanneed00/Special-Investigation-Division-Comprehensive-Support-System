@@ -251,8 +251,8 @@ $heroTitle=New-Object System.Windows.Forms.Label
 $heroTitle.Text='今日，也请有序执勤。';$heroTitle.Location=New-Object System.Drawing.Point(26,422);$heroTitle.Size=New-Object System.Drawing.Size(370,40)
 $heroTitle.Font=New-Object System.Drawing.Font('Microsoft YaHei UI',18,[System.Drawing.FontStyle]::Bold);$heroTitle.ForeColor=[System.Drawing.Color]::FromArgb(228,214,177);$form.Controls.Add($heroTitle)
 $heroNote=New-Object System.Windows.Forms.Label
-$heroNote.Text="选择右侧任务，再开始执勤。`n进展与异常会显示在下方简报中。"
-$heroNote.Location=New-Object System.Drawing.Point(28,474);$heroNote.Size=New-Object System.Drawing.Size(368,60)
+$heroNote.Text="开始前，请先让游戏停在主界面（大厅）。`n选择右侧任务，再开始执勤。`n进展与异常会显示在下方简报中。"
+$heroNote.Location=New-Object System.Drawing.Point(28,474);$heroNote.Size=New-Object System.Drawing.Size(368,80)
 $heroNote.ForeColor=[System.Drawing.Color]::FromArgb(163,174,183);$form.Controls.Add($heroNote)
 $mascot=New-Object System.Windows.Forms.PictureBox
 $mascot.Location=New-Object System.Drawing.Point(28,560);$mascot.Size=New-Object System.Drawing.Size(125,125);$mascot.SizeMode='Zoom'
@@ -284,7 +284,7 @@ $recordLabel.Location=New-Object System.Drawing.Point(424,602);$recordLabel.Text
 $detailButton.Location=New-Object System.Drawing.Point(1016,592)
 $logBox.Location=New-Object System.Drawing.Point(424,632);$logBox.Size=New-Object System.Drawing.Size(730,100);$logBox.BackColor=$taskGroup.BackColor
 $logBox.Text='等待开始。这里只显示任务开始、完成与异常。'
-$footer.Location=New-Object System.Drawing.Point(26,736);$footer.Size=New-Object System.Drawing.Size(1128,42);$footer.Text='运行时请勿操作鼠标                              诊断记录保留 14 天 / 100 MB`n自动刷取仅支持已解锁的关卡：目标关卡未解锁时刷取会中断并按失败处理，开始前请先在游戏中确认关卡已全部解锁。'
+$footer.Location=New-Object System.Drawing.Point(26,736);$footer.Size=New-Object System.Drawing.Size(1128,42);$footer.Text='运行时请勿操作鼠标   /   开始前请先让游戏停在主界面（大厅）   诊断记录保留 14 天 / 100 MB`n自动刷取仅支持已解锁的关卡：目标关卡未解锁时刷取会中断并按失败处理，开始前请先在游戏中确认关卡已全部解锁。'
 $taskGroup.Controls.Add($performanceCombo)
 $performanceCombo.Location=New-Object System.Drawing.Point(400,10)
 $performanceCombo.Size=New-Object System.Drawing.Size(312,28)
