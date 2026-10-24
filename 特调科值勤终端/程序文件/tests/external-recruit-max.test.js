@@ -57,9 +57,23 @@ test('plenty of tickets still fill every free slot',async()=>{
  await run(f.session);
  assert.ok(f.clicks.some(label=>/选择招募 MAX/.test(label)),'应执行 MAX 点击');
 });
-test('MAX count is verified against the capped target, not the slot count',async()=>{
- // 券只有 1 张却读到 4（与封顶目标不符）：必须判失败，证明校验确实绑定剩余券数。
+test('MAX count is rejected when it exceeds the remaining tickets',async()=>{
+ // 券只有 1 张却选到 4：付不起，必须判失败，证明校验确实绑定剩余券数。
  const f=fixture({tickets:1,occupied:0,quantity:4});
+ await assert.rejects(run(f.session),/选择招募 MAX|结果未确认/);
+});
+test('MAX count below the predicted cap is accepted as long as it is affordable',async()=>{
+ // 券 5 张、空槽 4 个，游戏 MAX 只给到 3（我们无法复刻其内部规则）。
+ // 旧逻辑要求等于 min(空槽,券数)=4，3 不符会重试三次后报错；新逻辑只要求付得起，
+ // 3<=5 直接通过——游戏给多少就用多少，不再因期望值过具体而空转。
+ const f=fixture({tickets:5,occupied:0,quantity:3});
+ await run(f.session);
+ assert.ok(f.clicks.some(label=>/选择招募 MAX/.test(label)),'可支付的下限次数应被接受');
+});
+test('a zero MAX count is rejected even though it is affordable',async()=>{
+ // 0 次虽然“不超过券数”，但点了确定也什么都召不到（弹窗未刷新/动画中会读到 0），
+ // 必须靠下界拦住，否则会带着一个空选择进入确认。
+ const f=fixture({tickets:5,occupied:0,quantity:0});
  await assert.rejects(run(f.session),/选择招募 MAX|结果未确认/);
 });
 test('unreadable ticket count still spends whatever the game allows',async()=>{
