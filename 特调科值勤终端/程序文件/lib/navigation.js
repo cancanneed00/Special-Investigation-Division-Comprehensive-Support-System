@@ -1,4 +1,4 @@
-const { Flow: Vision, sleep } = require('./flow');
+const { Flow: Vision, sleep, HOME_TEMPLATES } = require('./flow');
 async function recover(session,{taskId}={}) {
   const v = new Vision(session);
   if(taskId==='office_interpret' && await require('./office-flow').recoverArchive(v))return;
@@ -64,7 +64,7 @@ async function recover(session,{taskId}={}) {
       await v.wait(async () => await v.ocr('.*是否离开事务所.*') || await v.home(), '事务所退出结果');
       continue;
     }
-    const home = await v.template('主界面按钮.png', [0,0,500,150]);
+    const home = await v.template(HOME_TEMPLATES, [0,0,500,150]);
     if (home) {
       await v.click(home, '返回主页');
       await v.wait(() => v.home(), '主页');

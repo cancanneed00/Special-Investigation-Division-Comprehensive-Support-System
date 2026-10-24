@@ -1,8 +1,8 @@
-const {sleep}=require('./flow');
+const {sleep,HOME_TEMPLATES}=require('./flow');
 const SIDEBAR=[30,80,195,580];
 const externalLabel=v=>v.ocr('.*外部招募.*',SIDEBAR);
 const recruitPage=v=>v.frame(async()=>Boolean(
-  await v.template('主界面按钮.png',[250,0,150,80],0.7) &&
+  await v.template(HOME_TEMPLATES,[250,0,150,80],0.7) &&
   await v.ocr('.*招募.*',SIDEBAR)));
 async function settledLabel(v){
   try{return await v.wait(()=>externalLabel(v),'左栏外部招募标签',{timeout:1800,stable:1});}

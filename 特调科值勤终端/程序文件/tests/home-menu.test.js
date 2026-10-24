@@ -1,4 +1,4 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const {Vision}=require('../lib/vision');const {menuFromRows}=require('../lib/home-menu');
+const {test}=require('node:test');const assert=require('node:assert/strict');const {Vision}=require('../lib/vision');const {menuFromRows,menuSummary}=require('../lib/home-menu');
 function fixture(combat='作战'){
  const points=[];let rows=['招募','补给站','事务所','探员',combat,'任务','系统'].map((text,i)=>({text,score:0.99,box:[40+i*130,100+i*40,80,30]}));
  const v=new Vision({check(){},operation:async(label,fn)=>fn(),controller:{post_click(x,y){points.push([x,y]);return {wait:async()=>({succeeded:true})};}}});v.size=[1280,720];v.ocr=async()=>({detail:{all:rows}});v.reward=async()=>false;
@@ -30,4 +30,28 @@ test('duplicate or low-confidence menu text is not clicked',async()=>{
 test('normalization handles spaced labels but rejects other recruitment pages',()=>{
  const rows=['招 募','补 给 站','事务所','心锚'].map(text=>({text,score:1}));assert.equal(menuFromRows(rows).confirmed,true);
  assert.equal(menuFromRows([{text:'常驻招募'},{text:'外部招募'},{text:'招募一次'},{text:'当前进度'}]).confirmed,false);
+});
+test('themed skin merging English subtitle into one row is still recognized',()=>{
+ // 主题皮肤把英文副标题与中文标签连成一行（如“招募RECRUIT”），严格的 ^招募$ 会整体漏判。
+ const rows=['招募RECRUIT','补给站SUPPLIES','事务所THE ROOM','探员AGENTS'].map(text=>({text,score:0.8}));
+ assert.equal(menuFromRows(rows).confirmed,true);
+});
+test('artistic skin tolerates a single unreadable label',()=>{
+ // 事务所 因艺术字未读出：其余信号仍足够判定为主页，并可报告缺失项。
+ const rows=['招募','补给站','探员','当前进度'].map(text=>({text,score:0.9}));
+ const menu=menuFromRows(rows);assert.equal(menu.confirmed,true);
+ assert.deepEqual(menuSummary(menu).missing,['事务所']);
+});
+test('stylized labels at reduced OCR confidence still count',()=>{
+ const rows=['招募','补给站','事务所','探员'].map(text=>({text,score:0.65}));
+ assert.equal(menuFromRows(rows).confirmed,true);
+});
+test('recruitment sub page stays below the home threshold',()=>{
+ // 招募子页只有“招募 + 当前进度”两类信号，达不到阈值。
+ const rows=['招募','当前进度'].map(text=>({text,score:0.9}));
+ assert.equal(menuFromRows(rows).confirmed,false);
+});
+test('English decoration cannot smuggle other recruitment pages in',()=>{
+ const rows=['常驻招募RECRUIT','外部招募','招募一次','当前进度'].map(text=>({text,score:0.9}));
+ assert.equal(menuFromRows(rows).confirmed,false);
 });

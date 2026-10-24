@@ -44,15 +44,22 @@ async function run(session) {
   } else {
    const occupied=await occupiedSlots(v);
    if(!Number.isInteger(occupied)||occupied<0||occupied>=4)throw new Error('无法确认空闲招募槽数量');
+   // 每轮刷新剩余外招券：上一轮招募会消耗券，MAX 目标必须按“剩余券数”封顶。
+   // 否则券不足时游戏最多只能选到 min(空槽, 券数)，与“填满空槽”(4-occupied)的期望值不一致，
+   // MAX 校验会一直失败并重试（表现为连点 MAX 三次后报错）。读不出券数时按未知处理，保持原逻辑。
+   const remaining=await readTicketCount(v);
+   const want = remaining===null ? 4-occupied : Math.min(4-occupied, remaining);
+   if(want<=0){console.log('外招券已用尽，结束外部招募');await v.homeReturn();return;}
    const modal=()=>v.ocr('单次耗时.*分钟',[400,180,500,160]);
    await v.textStep('^启动招募$',modal,'打开招募数量',[800,400,480,320]);
    const count=async()=>integer(await v.ocr('^[0-9]+$',[600,345,80,55]));
    // MAX is idempotent; verify a stable selected count, then require 任务已满 after confirmation.
    await v.step(()=>v.template('招募数量_MAX.png',[690,260,260,210],0.76),async()=>{
-    const a=await count();return a===4-occupied && a===await count();
+    const a=await count();return a===want && a===await count();
    },'选择招募 MAX');
-   // 确认招募。外招券不足（例如数量为 0）时游戏会拒绝启动，「任务已满」不会出现；
-   // 此时不抛错中断整轮运行，而是关闭弹窗、退回主界面，让外部招募正常结束。
+   // 确认招募。MAX 目标已按剩余券数封顶，正常情况可顺利启动；
+   // 此处仅作兜底：若券数读取偏差或游戏仍拒绝启动（「任务已满」不出现），
+   // 不抛错中断整轮运行，而是关闭弹窗、退回主界面，让外部招募正常结束。
    let started=true;
    try{
     await v.textStep('^确定$',()=>v.ocr('^任务已满$',[800,400,480,320]),'确认招募并检查任务已满',[560,400,360,190],{irreversible:true});

@@ -2,6 +2,10 @@ const {Vision, sleep} = require('./vision');
 // 游戏网络请求偶发失败时弹出的系统弹窗（“注意：连接未成功，请点击确定重试”），
 // 布局固定：消息居中，右侧金色对号为“确定重试”，左侧为放弃的叉号。
 const CONNECTION_DIALOG={pattern:'.*连接未成功.*',roi:[400,250,480,80],retry:[700,370]};
+// 返回主页的房子图标会随主题皮肤重绘，故以列表维护：
+// 拿到新皮肤后，只需把该皮肤的返回图标截图放进 resource/base/image，并在此数组追加文件名即可，
+// 无需改动任何调用点。
+const HOME_TEMPLATES=['主界面按钮.png'];
 class Flow extends Vision {
   async loading() {
     return await this.template('流程_加载标志.png', [0,570,250,150], 0.76) &&
@@ -48,7 +52,15 @@ class Flow extends Vision {
   }
   async homeReturn() {
     if (await this.home()) return;
-    await this.step(()=>this.template('主界面按钮.png',[0,0,500,130],0.7),()=>this.home(),'Home 返回主界面');
+    try {
+      await this.step(()=>this.template(HOME_TEMPLATES,[0,0,500,130],0.7),()=>this.home(),'Home 返回主界面');
+      return;
+    } catch(error) {
+      // 主题皮肤可能重绘了返回主页图标，导致模板全部失配；
+      // 此时改用通用返回箭头再退一层，仍回不到主页才把错误抛出去。
+      if(await this.home())return;
+      await this.back(()=>this.home());
+    }
   }
   async back(expected) {
     return this.step(()=>this.template('商店_左上返回箭头.png',[0,0,250,130],0.74),expected,'返回上一页');
@@ -85,4 +97,4 @@ const integer = reco => {
   const text=reco?.detail?.best?.text || '';
   return /^\d+$/.test(text.trim()) ? Number(text.trim()) : null;
 };
-module.exports={Flow,integer,sleep};
+module.exports={Flow,integer,sleep,HOME_TEMPLATES};
