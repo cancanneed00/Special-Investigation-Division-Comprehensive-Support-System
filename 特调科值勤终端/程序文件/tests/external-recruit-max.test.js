@@ -62,6 +62,13 @@ test('MAX count is verified against the capped target, not the slot count',async
  const f=fixture({tickets:1,occupied:0,quantity:4});
  await assert.rejects(run(f.session),/选择招募 MAX|结果未确认/);
 });
+test('unreadable ticket count still spends whatever the game allows',async()=>{
+ // 券数读不出时不再要求“填满空槽”：只要 MAX 选到 1..空槽 之间的稳定值就继续招募。
+ // 旧逻辑会按 4-occupied 校验，券不足时读到 1 便重试三次后报错，白扔掉可用的券。
+ const f=fixture({tickets:null,occupied:0,quantity:1});
+ await run(f.session);
+ assert.ok(f.clicks.some(label=>/选择招募 MAX/.test(label)),'券数未知也应执行 MAX 并消耗券');
+});
 test('exhausted tickets end external recruitment without a failing loop',async()=>{
  // 剩余券 0：MIN(空槽,0)=0，直接结束，不进入必然失败的招募循环。
  const f=fixture({tickets:0,occupied:0,quantity:0});

@@ -6,6 +6,9 @@ const CONNECTION_DIALOG={pattern:'.*连接未成功.*',roi:[400,250,480,80],retr
 // 拿到新皮肤后，只需把该皮肤的返回图标截图放进 resource/base/image，并在此数组追加文件名即可，
 // 无需改动任何调用点。
 const HOME_TEMPLATES=['主界面按钮.png'];
+// 主题皮肤会同时重绘「返回主页图标」与「左上返回箭头」，两者的模板都可能失配。
+// 键盘返回与皮肤无关，作为最后一层兜底；控制器不支持按键时自动跳过。
+const ESC_KEY=27, ESC_ATTEMPTS=3;
 class Flow extends Vision {
   async loading() {
     return await this.template('流程_加载标志.png', [0,570,250,150], 0.76) &&
@@ -59,7 +62,19 @@ class Flow extends Vision {
       // 主题皮肤可能重绘了返回主页图标，导致模板全部失配；
       // 此时改用通用返回箭头再退一层，仍回不到主页才把错误抛出去。
       if(await this.home())return;
-      await this.back(()=>this.home());
+      try { await this.back(()=>this.home()); return; } catch(inner) {}
+      // 两层模板都失配：按 ESC 逐层退出。键盘返回不受皮肤影响，是最后的通用手段。
+      const controller=this.s && this.s.controller;
+      if(controller && typeof controller.post_click_key==='function'){
+        for(let i=0;i<ESC_ATTEMPTS;i++){
+          await controller.post_click_key(ESC_KEY).wait();
+          await sleep(800);
+          if(await this.home())return;
+        }
+      }
+      throw new Error('返回主页失败：已依次尝试主页图标、左上返回箭头与 ESC。'
+        +'若使用了新的主题皮肤，请在该皮肤的界面上截取左上角的返回图标，'
+        +'放入 resource/base/image 并在 HOME_TEMPLATES 中追加文件名。');
     }
   }
   async back(expected) {
