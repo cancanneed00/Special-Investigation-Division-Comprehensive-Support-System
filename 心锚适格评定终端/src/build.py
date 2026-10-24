@@ -5,7 +5,7 @@ from engine import VERSION
 ROOT=SRC.parent/'心锚终端'
 APP=ROOT/'程序文件'
 BUNDLE=Path(r'C:\Users\30860\.cache\codex-runtimes\codex-primary-runtime\dependencies\python')
-DUTY=Path(r'C:\Users\30860\Documents\New project\release\特调科执勤终端-2.2.3\程序文件')
+DUTY=Path(r'D:\异象回声终端\工程\release\特调科执勤终端-2.2.3\程序文件')
 def cp(src,dst,ignore=None):
  if src.is_dir():shutil.copytree(src,dst,dirs_exist_ok=True,ignore=ignore)
  else:dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dst)

@@ -10,8 +10,8 @@ from engine import import_workbook,catalog_people,anchor_recommendations
 
 def find_book():
     for cand in [HERE.parent/'表格',
-                 Path(r'C:\Users\30860\Documents\New project\publish-anchor-065\test-068\心锚适格评定终端-0.6.8\表格'),
-                 Path(r'C:\Users\30860\Documents\New project\publish-anchor-065\anchor-fitness-assessment-terminal-0.6.5\心锚适格评定终端-0.6.5\表格')]:
+                 Path(r'D:\异象回声终端\工程\publish-anchor-065\test-068\心锚适格评定终端-0.6.8\表格'),
+                 Path(r'D:\异象回声终端\工程\publish-anchor-065\anchor-fitness-assessment-terminal-0.6.5\心锚适格评定终端-0.6.5\表格')]:
         if cand.exists():
             hits=sorted(cand.glob('*.xlsx'))
             if hits:return hits[0]
