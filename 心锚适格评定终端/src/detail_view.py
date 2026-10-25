@@ -138,13 +138,13 @@ def open_details(a):
   for d in e.get('value_details',[]):
    unit='%' if d.get('unit')=='percent' else ''
    head=f"词条 {d['position']}  ·  {d['stat']}  {d['value']}{unit}"
-   if d.get('level1'):
-    head+=f"  →  1 级等价 {d['level1']}{unit}（{d['level']} 级 / 上限 {d.get('level_n') or '?'} 级）"
+   if d.get('level'):
+    head+=f"（{d['level']} 级 / 上限 {d.get('level_n') or '?'} 级）"
    t.insert('end',head+'\n','label')
    t.insert('end',f"档位：{d['tier']}    单条质量：{score_range(d['score_range'])} 分\n\n")
   if e.get('value_range'):t.insert('end',f"整体数值分：{score_range(e['value_range'])}\n")
   if e.get('decision')=='仅评分':
-   t.insert('end','\n本件非 1 级：数值已按游戏等级成长曲线折算回 1 级等价值再评档位；只给评分与建议，不会锁定或标记放弃。\n','muted')
+   t.insert('end','\n本件非 1 级：数值已按游戏等级成长曲线折算档位再评分；只给评分与建议，不会锁定或标记放弃。\n','muted')
   for note in e.get('value_notes',[]):t.insert('end',str(note)+'\n','muted')
   t.insert('end','\n计算公式\n','heading');t.insert('end','100 × Σ（词条权重 × 当前值 / 满值）/ Σ权重 × min(1,词条数/3)\n权重：40% / 30% / 20% / 10%。缺失词条不占权重；2条及以下有缺条折扣。','muted');t.configure(state='disabled')
  t=text_area(reason);t.configure(state='normal');t.insert('end',e['decision']+'\n','heading')

@@ -216,7 +216,7 @@ class App(base.App):
   self.titlevar.set(f'{obs["anchor"]}  ·  等级 {obs.get("level","?")}  ·  {ev["entry_count"]} 条'+('固定词条' if ev.get('fixed_entries') else '词条'))
   if ev.get('fixed_entries'):self.scoresvar.set('活动心锚 · 词条固定且数值为满值 · 直接记 100 分')
   elif ev.get('decision')=='仅评分':
-   self.scoresvar.set('数值分 '+score_text(ev['value_score'],ev['value_range'])+'（'+str(obs.get('level'))+' 级已折算到 1 级）    最高匹配分 '+score_text(ev['match_score']))
+   self.scoresvar.set('数值分 '+score_text(ev['value_score'],ev['value_range'])+'（'+str(obs.get('level'))+' 级，按档位评分）    最高匹配分 '+score_text(ev['match_score']))
   else:self.scoresvar.set('数值分 '+score_text(ev['value_score'],ev['value_range'])+'    最高匹配分 '+score_text(ev['match_score']))
   self.fields.delete(*self.fields.get_children());details={str(d['position']):d for d in ev['value_details']}
   for key in ('1','2','3','4'):
@@ -224,8 +224,6 @@ class App(base.App):
    if ev.get('fixed_entries'):
     self.fields.insert('','end',values=(key,d.get('stat') or '无','—',d.get('tier') or '—'));continue
    shown=(str(v['value'])+('%' if v['unit']=='percent' else '')) if v else '—'
-   if d.get('level1'):
-    shown=shown+' → 1级 '+d['level1']+('%' if v['unit']=='percent' else '')
    self.fields.insert('','end',values=(key,v['stat'] if v else '无' if obs.get('presence',{}).get(key)=='absent' else '未确定',
      shown,d.get('tier','—')))
   if ev.get('fixed_entries'):self.traitvar.set('；'.join(ev.get('trait_notes',[])) or '特性：按原表展示')

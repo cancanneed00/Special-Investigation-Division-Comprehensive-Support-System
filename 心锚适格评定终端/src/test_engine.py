@@ -51,7 +51,7 @@ class EngineTests(unittest.TestCase):
  def test_ocr_issue(self):
   o=self.observation();o['issues']=['低置信'];self.assertEqual(evaluate(self.m,o,['犬齿'])['decision'],'待复核')
  def test_non_level_one(self):
-  o=self.observation();o['level']=30;self.assertEqual(evaluate(self.m,o)['decision'],'跳过')
+  o=self.observation();o['level']=30;self.assertEqual(evaluate(self.m,o)['decision'],'仅评分')
  def test_no_recommendation_review(self):self.assertEqual(evaluate(self.m,self.observation(),['不存在'])['decision'],'待复核')
  def test_threshold(self):self.assertEqual(evaluate(self.m,self.observation(),['犬齿'],99)['decision'],'建议放弃')
 

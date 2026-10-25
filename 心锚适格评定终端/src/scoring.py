@@ -224,12 +224,12 @@ def evaluate_dual(model,obs,selected=None,policy=None):
  # Non-level-1 anchors show the value at their current level. Map it back to the
  # level-1 equivalent so the six-tier table stays usable; 1 级 items skip this.
  rows=dict(obs.get('entries') or {});converted=[];blocked=[]
- # 可强化上限 N：优先界面上的「当前/上限」，与内置表冲突时以界面为准。
- level_cap=obs.get('level_cap') if obs.get('level_cap') in anchor_curve.GROWTH else None
+ # 可强化上限 N：内置 LEVELS 表来自游戏二进制（anchors.json 的 category_fields[23]），
+ # 是权威值；界面 OCR 到的「上限」可能把 30 误读成 20 之类，只作表外心锚的兜底，
+ # 不覆盖内置表。表外心锚才退回界面值，仍没有就按 30/20/10 依次试算。
  level_n=anchor_curve.levels_of(anchor['name'])
- if level_n and level_cap and level_n!=level_cap:
-  issues.append('界面等级上限 %d 与内置表 %d 不一致，已按界面值折算'%(level_cap,level_n));level_n=level_cap
- elif not level_n:
+ level_cap=obs.get('level_cap') if obs.get('level_cap') in anchor_curve.GROWTH else None
+ if not level_n:
   level_n=level_cap
  if level!=1:
   for key,item in list(rows.items()):
@@ -332,9 +332,9 @@ def level_only(base,obs,level,level_n,converted,issues):
  base['level_n']=level_n
  notes=[]
  for key,est in converted:
-  line='词条%s：%d 级实测 %s → 折算 1 级 %s（第%s档，按 %d 级上限曲线）' % (
+  line='词条%s：%d 级实测 %s → 第%s档' % (
       key,est['level'],_num(est['observed'],est.get('unit') or 'flat'),
-      est['value'],est['tier'],est['n'])
+      est['tier'])
   if est.get('ties'):
    line+='，档位可能有歧义：'+' / '.join('%s档'%t for t in [est['tier']]+list(est['ties']))
   notes.append(line)

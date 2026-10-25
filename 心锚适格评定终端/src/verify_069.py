@@ -122,11 +122,11 @@ try:
     ev = evaluate(model, obs_of('度假指南', 20, DUJIA_L20))
     app.display(dict(obs_of('度假指南', 20, DUJIA_L20), image=str(book)), ev)
     assert '仅评分' in app.decision.get(), app.decision.get()
-    assert '折算' in app.scoresvar.get(), app.scoresvar.get()
+    assert '按档位评分' in app.scoresvar.get(), app.scoresvar.get()
     values = [app.fields.item(i, 'values') for i in app.fields.get_children()]
-    assert any('1级' in str(v[2]) for v in values if v), values
+    assert any('档' in str(v[3]) for v in values if v), values
     assert '仅评分' in ui_v4.brief(ev), ui_v4.brief(ev)
-    print('OK headless Tk: decision / score line / field table show the conversion')
+    print('OK headless Tk: decision / score line / field table show tier (no level-1 value)')
 finally:
     app.destroy()
 print('\n0.6.11 verification passed')
