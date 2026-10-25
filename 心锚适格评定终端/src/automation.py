@@ -224,8 +224,6 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
      except OCRCancelled:raise Stopped('用户已停止')
     else:obs=recognizer(root,second,model)
     ocr_seconds=time.perf_counter()-ocr_started;b.check();ev=evaluate(model,obs,selected,policy)
-    if obs.get('level')!=1 and obs.get('rarity') not in (1,2):
-     ev.update(decision='跳过',reasons=['仓库仅处理1级；其他等级仅支持单件预览'])
     fresh=b.capture()
     if not vision.detail_same(z,vision.image(fresh)):
      # Pointer interference during scoring can unseat the selection. Wait it
@@ -244,7 +242,11 @@ def run_inventory(root,model,policy,selected,stop,notify,scroll=True,max_items=3
      # Event anchors keep their fixed value: never send a lock or discard marker.
      action=('活动心锚 · 可保留使用' if ev['decision']=='活动心锚' else ('一星跳过' if obs['rarity']==1 else '二星跳过')) if apply_marks else '仅评分：'+ev['decision']
     else:
-     action=(mark_one(b,fresh,ev['decision'],cell) if obs.get('level')==1 else '跳过非1级') if apply_marks else '仅评分：'+ev['decision']
+     if obs.get('level')==1:action=mark_one(b,fresh,ev['decision'],cell) if apply_marks else '仅评分：'+ev['decision']
+     else:
+      # 非 1 级心锚只评分与建议：即便评分给出了锁定/放弃，这里也不落标记。
+      if ev['decision'] in ('锁定','标记放弃'):ev=dict(ev,decision='仅评分')
+      action='仅评分 · 未标记（非1级）'
     row={'page':page,'cell':cell,'observation':obs,'evaluation':ev,'action':action,'ocr_seconds':round(ocr_seconds,3)}
     records.append(row);atomic_json(b.folder/'results.json',records)
     checkpoint(vision.image(b.capture()) if apply_marks and action.endswith('成功') else vision.image(fresh),cell)

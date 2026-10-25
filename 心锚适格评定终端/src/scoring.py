@@ -2,6 +2,7 @@
 from decimal import Decimal
 import math
 import copy,re
+import anchor_curve
 from engine import classify,preference
 
 DEFAULT_POLICY={'version':2,
@@ -142,8 +143,8 @@ def decide(quality,choices,policy,issues=(),value_range=None):
  return '跳过','未满足推荐保留条件，也未命中独立低质量筛选'
 
 def usage_row(ch,rec,label):
- """A recommendation without any score: event anchors have fixed values."""
- reason=label+'活动心锚，固定词条数值，不评分'
+ """A recommendation without any score: fixed-value anchors have maxed numbers."""
+ reason=label+'心锚词条固定、数值取满值，数值分直接记 100，不评匹配分'
  return {'character':ch['name'],'rank':rec['rank'],'score':None,'no_score':True,'state':'推荐使用',
          'reasons':[reason],'details':[],'note':ch['note'],'gate_pass':None,'gate_checks':[],'alternatives':[],'reason':reason}
 
@@ -185,11 +186,13 @@ def evaluate_dual(model,obs,selected=None,policy=None):
  anchor=model['anchors'].get(obs.get('anchor'));issues=[s for s in obs.get('issues',[]) if not s.startswith('特性')]
  base={'value_score':None,'value_range':None,'value_details':[],'entry_count':sum(bool(x) for x in obs.get('entries',{}).values()),
        'matches':[],'matches5':[],'match_score':None,'decision':'跳过复核','reasons':issues,'value_notes':[],'rule_hash':model['hash'],'policy':policy}
- if obs.get('rarity') in (1,2):
-  label='一星' if obs['rarity']==1 else '二星'
+ if obs.get('rarity') in (1,2) or (anchor and anchor_curve.is_fixed_anchor(anchor.get('origin'))):
+  star=obs.get('rarity')
+  label='一星' if star==1 else '二星' if star==2 else '活动 / 限时累充回馈'
   if anchor:
-   # Event anchors carry fixed entries and values: nothing is scored and no
-   # marker is ever sent, but a workbook entry means the item is worth keeping.
+   # Fixed-value anchors (one/two star, activity shop, top-up reward) ship with
+   # maxed numbers and a fixed entry list: never run the level curve, never
+   # score affinity, and never send a lock or discard marker.
    usage=[];usage5=[]
    for ch in model['characters']:
     if selected and ch['name'] not in selected:continue
@@ -199,26 +202,57 @@ def evaluate_dual(model,obs,selected=None,policy=None):
     if selected and ch['name'] not in selected:continue
     for r in ch['recs']:
      if r['active'] and r['anchor']==anchor['name'] and r['slot']==anchor['slot']:usage5.append(usage_row(ch,r,label))
-   base.update(decision='活动心锚',matches=usage,matches5=usage5,match_score=None)
+   base.update(decision='活动心锚',matches=usage,matches5=usage5,match_score=None,
+               value_score=100,value_range=[100,100],fixed_full=True)
    names='、'.join(dict.fromkeys(m['character'] for m in usage))
-   base['reasons']=[label+'活动心锚：词条数值按原表固定，不评分、不自动标记，建议保留备用',
+   base['reasons']=[label+'心锚：词条固定、数值本身就是满值，数值分直接记 100（不做等级折算），不自动标记',
                     '六星推荐使用：'+(names+'（共 '+str(len(usage))+' 个方案）' if usage else '暂无')]
    details=[]
    for i in range(1,5):
     pool=anchor['pools'].get(str(i)) or []
-    if pool:details.append({'position':i,'stat':' / '.join(pool),'value':None,'unit':None,'tier':'固定词条','tier_candidates':[],'score_range':None,'star':None,'basis':'活动心锚固定词条，按原表展示，不评分'})
+    if pool:details.append({'position':i,'stat':' / '.join(pool),'value':None,'unit':None,'tier':'固定词条','tier_candidates':[],'score_range':[100,100],'star':None,'basis':'固定词条且数值为满值，直接记 100 分'})
    base['value_details']=details;base['entry_count']=len(details);base['fixed_entries']=True
    traits=[t for k in ('1','2') for t in anchor['traits'].get(k,[]) if t]
    base['trait_notes']=['特性（按原表，仅供参考）：'+' / '.join(traits)] if traits else []
   else:
    base.update(decision='跳过',reasons=[label+'心锚直接跳过（不在心锚百科，无需处理）'])
   return base
- if obs.get('level') not in (1,30):
-  base.update(decision='跳过' if isinstance(obs.get('level'),int) else '跳过复核',reasons=['仅支持1级或30级评分；仓库仅处理1级']);return base
- if obs.get('level')==30:
-  model=dict(model,rules=[dict(r,values=r['values30']) for r in model['rules'] if r.get('values30') and any(v['tier']==1 for v in r['values30'])])
+ level=obs.get('level')
+ if not isinstance(level,int) or level<1:
+  base.update(decision='跳过复核',reasons=['等级未识别，无法按等级曲线折算数值']);return base
  if not anchor:issues.append('未知心锚');return base
- rows=obs.get('entries',{});traits=obs.get('traits',{});ratios=[];evidence={};all_choices=[];weights={1:.4,2:.3,3:.2,4:.1}
+ # Non-level-1 anchors show the value at their current level. Map it back to the
+ # level-1 equivalent so the six-tier table stays usable; 1 级 items skip this.
+ rows=dict(obs.get('entries') or {});converted=[];blocked=[]
+ # 可强化上限 N：优先界面上的「当前/上限」，与内置表冲突时以界面为准。
+ level_cap=obs.get('level_cap') if obs.get('level_cap') in anchor_curve.GROWTH else None
+ level_n=anchor_curve.levels_of(anchor['name'])
+ if level_n and level_cap and level_n!=level_cap:
+  issues.append('界面等级上限 %d 与内置表 %d 不一致，已按界面值折算'%(level_cap,level_n));level_n=level_cap
+ elif not level_n:
+  level_n=level_cap
+ if level!=1:
+  for key,item in list(rows.items()):
+   if not item:continue
+   est=anchor_curve.estimate_level1(model['rules'],anchor['slot'],int(key),item['stat'],
+                                    item.get('unit'),item.get('value'),level,level_n)
+   if not est:continue
+   if est['value'] is None:
+    if est.get('reason')=='nocurve':
+     blocked.append(key)
+     issues.append('词条'+key+'（'+item['stat']+'）在表格里没有 30 级数值列，无法按等级反推 1 级值')
+     continue
+    issues.append('词条'+key+' 按 '+str(est.get('n') or level_n or 30)+' 级曲线折算对不上任何档位（实测 '+str(item.get('value'))+'），仅按原值评估')
+    continue
+   rows[key]=dict(item,value=est['value'],observed=item.get('value'),level1=est,star=None,
+                  star_original=item.get('star'))
+   converted.append((key,est))
+   if item.get('star') is True and est['tier']!=1:
+    issues.append('词条'+key+' 星标为「满档」但折算结果是第'+str(est['tier'])+'档，已以数值为准')
+  if blocked:
+   # 有词条折算不出来，硬评只会虚高；这类情况交人工复核。
+   base.update(decision='跳过复核',reasons=issues);return base
+ traits=obs.get('traits',{});ratios=[];evidence={};all_choices=[];weights={1:.4,2:.3,3:.2,4:.1}
  for i in range(1,5):
   key=str(i);item=rows.get(key)
   if item is None:
@@ -251,8 +285,14 @@ def evaluate_dual(model,obs,selected=None,policy=None):
    if scores:base['value_notes'].append('词条'+key+'：'+basis)
   if scores:ratios.append((min(scores),max(scores),weights[i]))
   else:issues.append('词条'+key+' '+item['stat']+' '+str(item['value'])+'：'+basis)
-  base['value_details'].append({'position':i,'stat':item['stat'],'value':item['value'],'unit':item['unit'],'tier':evidence[key]['text'],'tier_candidates':evidence[key]['candidates'],
-       'score_range':[round(min(scores)*100,2),round(max(scores)*100,2)] if scores else None,'star':item.get('star'),'basis':basis})
+  detail={'position':i,'stat':item['stat'],'value':item.get('observed',item['value']),'unit':item['unit'],
+          'tier':evidence[key]['text'],'tier_candidates':evidence[key]['candidates'],
+          'score_range':[round(min(scores)*100,2),round(max(scores)*100,2)] if scores else None,
+          'star':item.get('star_original',item.get('star')),'basis':basis}
+  if item.get('level1'):
+   est=item['level1'];detail.update(level=level,level1=item['value'],level_n=est['n'],
+                                    level_residual=round(est['residual'],4),level_ties=est.get('ties') or [])
+  base['value_details'].append(detail)
  if len(ratios)==base['entry_count'] and len(ratios)>=2:
   coverage=min(1,base['entry_count']/3)
   bounds=[round(sum(p[j]*p[2] for p in ratios)/sum(p[2] for p in ratios)*100*coverage,2) for j in (0,1)]
@@ -271,6 +311,46 @@ def evaluate_dual(model,obs,selected=None,policy=None):
  issues[:]=list(dict.fromkeys(issues))
  base['quality_filter']=quality_filter(obs,evidence,policy['discard'])
  base['eligible_matches']=[{'character':c['character'],'rank':c['rank'],'score':c['score']} for c in all_choices if c['gate_pass'] is True and c['score']>=policy['keep']['match_threshold']]
+ if level!=1:
+  # 非 1 级心锚：数值已折算到 1 级参与评分，但只给评分与建议，不做保留 / 放弃操作。
+  return level_only(base,obs,level,level_n,converted,issues)
  base['decision'],reason=decide(base['quality_filter'],all_choices,policy,issues,base['value_range'])
  base['reasons']=issues+[reason]
+ return base
+
+
+def _num(value,unit):
+ text='%.2f'%value if unit=='percent' else ('%g'%value)
+ return text+'%' if unit=='percent' else text
+
+
+def level_only(base,obs,level,level_n,converted,issues):
+ """非 1 级心锚的收尾：给出数值分、匹配建议与折算依据，但从不产生标记。"""
+ base['decision']='仅评分'
+ base['level']=level
+ base['level_cap']=obs.get('level_cap')
+ base['level_n']=level_n
+ notes=[]
+ for key,est in converted:
+  line='词条%s：%d 级实测 %s → 折算 1 级 %s（第%s档，按 %d 级上限曲线）' % (
+      key,est['level'],_num(est['observed'],est.get('unit') or 'flat'),
+      est['value'],est['tier'],est['n'])
+  if est.get('ties'):
+   line+='，档位可能有歧义：'+' / '.join('%s档'%t for t in [est['tier']]+list(est['ties']))
+  notes.append(line)
+ scored=[c for c in base['matches'] if c.get('score') is not None]
+ best=max(scored,key=lambda c:c['score']) if scored else None
+ value_txt=('数值分 %.2f'%base['value_score']) if base['value_score'] is not None else (
+     '数值分 %.2f—%.2f'%tuple(base['value_range']) if base['value_range'] else '数值分无法确定')
+ tip='建议：'+best['character']+'（匹配 %.2f）'%best['score'] if best else '建议：暂无达标探员推荐'
+ head=('非 1 级心锚（当前 %d 级%s）：已按等级曲线折算到 1 级参与评分，%s；%s。'
+       '非 1 级心锚只评分和建议，不做保留 / 放弃标记。'
+       % (level,('/ 上限 %d'%level_n) if level_n else '',value_txt,tip))
+ if level_n and level_n!=30:
+  notes.append('该心锚上限 %d 级，满级数值按 「满级/1级」倍数（N=%d → ×%g）估算，'
+               '档位判定可靠、具体数值可能有 2~3%% 偏差'%(level_n,level_n,anchor_curve.GROWTH[level_n]))
+ if any(est.get('loose') for _,est in converted):
+  notes.append('部分词条折算残差略超容差、但明显优于其他档位，已按最接近档位取值')
+ base['reasons']=issues+[head]+notes
+ base['reasons']=[x for x in dict.fromkeys(base['reasons']) if x]
  return base

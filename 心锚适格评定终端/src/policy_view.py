@@ -115,7 +115,7 @@ def build_policy(a):
  combo.bind('<<ComboboxSelected>>',example)
  ui.label(sim,'判断顺序：识别不确定 → 缺条 → 高数值直留 → 推荐保留 / 档位待复核 → 全低档 → 联合或整体低数值 → 不标记。关闭推荐保留后，有效推荐仍能阻止联合及整体低数值筛选，但不能阻止缺条 / 全低档规则。',color=base.GOLD)
  for title,text in ui.HELP[:1]+[ui.HELP[3],ui.HELP[4]]:ui.label(ui.card(sim,title),text)
- ui.label(sim,'试算不会保存设置或点击游戏。实际执行还会跳过1、2星，仓库仅处理1级，已有锁定保持；单件可识别30级。')
+ ui.label(sim,'试算不会保存设置或点击游戏。实际执行还会跳过1、2星，仓库只对1级心锚下保留/放弃标记（非1级只评分与建议），已有锁定保持；单件支持任意等级，非1级会按等级曲线折算回1级再评分。')
  for var in [q,m,count,uncertain]+tiers+roles:var.trace_add('write',refresh)
  for group in a.policyvars.values():
   for var in group.values():var.trace_add('write',lambda *_:(saved_note.set('已修改 · 尚未保存'),refresh()))

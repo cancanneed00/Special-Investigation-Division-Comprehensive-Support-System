@@ -6,7 +6,7 @@ from decimal import Decimal
 import openpyxl
 from PIL import Image
 
-VERSION='0.6.10'
+VERSION='0.6.11'
 IMPORT_VERSION=5
 TYPES={'偶像':1,'图籍':2,'钥匙':3}
 def plain(v):return '' if v is None else str(v).strip()
@@ -249,10 +249,10 @@ def recognize(root,path,model,stop=None):
                     if 'box' in x and x.get('text'):items.append(x)
             anchor,name,name_issues=parse_name(items,model,fuzzy=False)
             def band(lo,hi):return sorted([x for x in items if lo<=x['box'][1]+x['box'][3]/2<=hi],key=lambda x:x['box'][0])
-            lv=''.join(x['text'].replace(' ','') for x in band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv)
-            level=int(m.group(1)) if m else None
+            lv=''.join(x['text'].replace(' ','') for x in band(108,148));m=re.search(r'(\d+)\s*[/／]\s*(\d+)',lv)
+            level=int(m.group(1)) if m else None;level_cap=int(m.group(2)) if m else None
             known=anchor in (model.get('anchors') or {})
-            obs={'anchor':anchor or label+'心锚','level':level,'rarity':stars,'entries':{},'traits':{},'issues':name_issues,
+            obs={'anchor':anchor or label+'心锚','level':level,'level_cap':level_cap,'rarity':stars,'entries':{},'traits':{},'issues':name_issues,
                  'image':str(out/'input.png'),'original':str(path),'evidence':str(out),'raw_ocr':items,
                  'source':(label+'活动心锚；词条数值按原表固定，未做词条OCR' if known else label+'心锚；未做词条OCR')}
             (out/'observation.json').write_text(json.dumps(obs,ensure_ascii=False,indent=2),encoding='utf-8')
@@ -320,7 +320,8 @@ def parse_ocr(items,model):
     def text(xs):return ''.join(x['text'].replace(' ','') for x in xs)
     anchor,name,name_issues=parse_name(items,model)
     issues=list(name_issues)
-    lv=text(band(108,148));m=re.search(r'(\d+)\s*[/／]\s*\d+',lv);level=int(m.group(1)) if m else None
+    lv=text(band(108,148));m=re.search(r'(\d+)\s*[/／]\s*(\d+)',lv)
+    level=int(m.group(1)) if m else None;level_cap=int(m.group(2)) if m else None
     if not m:issues.append('等级未识别')
     entries={};traits={}
     for i,(lo,hi) in enumerate([(162,204),(205,247),(248,287),(288,330)],1):
@@ -363,7 +364,8 @@ def parse_ocr(items,model):
         if m and any(float(x.get('score',0))<.8 for x in xs):issues.append('特性'+str(i)+'OCR置信度偏低')
         if not m:issues.append('特性'+str(i)+'未识别，需确认是否为空')
     # The image pass adds star evidence; text alone never infers stars from values.
-    return {'anchor':anchor,'level':level,'entries':entries,'traits':traits,'issues':issues,'source':'本地OCR，星标未识别'}
+    return {'anchor':anchor,'level':level,'level_cap':level_cap,'entries':entries,'traits':traits,
+            'issues':issues,'source':'本地OCR，星标未识别'}
 
 def reparse_saved(old,model):
     import vision

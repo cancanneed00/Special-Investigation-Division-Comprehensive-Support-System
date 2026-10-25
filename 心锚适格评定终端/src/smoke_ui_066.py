@@ -61,13 +61,13 @@ try:
     assert app.results.get_children()
     app.results.selection_set('0');app.show_detail();app.update_idletasks()
     assert '固定词条' in app.titlevar.get(),app.titlevar.get()
-    assert '不评分' in app.scoresvar.get(),app.scoresvar.get()
+    assert '100' in app.scoresvar.get(),app.scoresvar.get()
     ui_v4.open_details(app);app.update()
     print('OK event anchor: scan page + details dialog rendered')
 
     # 3) all_match_details and brief tolerate unscored rows
     text=ui_v4.all_match_details(ev2)
-    assert '活动心锚不评分' in text,text
+    assert '活动心锚不计匹配分' in text,text
     assert '活动心锚' in ui_v4.brief(ev2)
     print('OK text helpers handle unscored rows')
 

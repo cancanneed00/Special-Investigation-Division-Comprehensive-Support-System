@@ -131,7 +131,7 @@ class App(base.App):
     explanation=ui.brief(e)
     action=row['action'].replace('已锁定，保留原状态','已锁定').replace('历史重评：','建议：').replace('离线重评：','建议：')
     fixed=e.get('fixed_entries')
-    self.history.insert('','end',iid=str(len(self.batch_records)-1),values=(count,o['anchor'],o.get('level'),'固定词条' if fixed else score_text(e['value_score'],e['value_range']),'不评分' if fixed else score_text(e['match_score']),action,explanation))
+    self.history.insert('','end',iid=str(len(self.batch_records)-1),values=(count,o['anchor'],o.get('level'),'固定词条' if fixed else score_text(e['value_score'],e['value_range']),'不计匹配分' if fixed else score_text(e['match_score']),action,explanation))
     self.history.see(str(len(self.batch_records)-1));last=(o,e)
     self.status.set(f'已处理 {count} 件  ·  {row["observation"]["anchor"]}  ·  {row["action"]}')
     self.batchstatus.set(self.status.get())
@@ -149,7 +149,7 @@ class App(base.App):
   self.batch_records=list(rows);self.history.delete(*self.history.get_children())
   for index,row in enumerate(rows):
    o=row['observation'];e=row['evaluation'];fixed=e.get('fixed_entries')
-   self.history.insert('','end',iid=str(index),values=(index+1,o['anchor'],o.get('level'),'固定词条' if fixed else score_text(e['value_score'],e.get('value_range')),'不评分' if fixed else score_text(e['match_score']),row['action'],ui.brief(e)))
+   self.history.insert('','end',iid=str(index),values=(index+1,o['anchor'],o.get('level'),'固定词条' if fixed else score_text(e['value_score'],e.get('value_range')),'不计匹配分' if fixed else score_text(e['match_score']),row['action'],ui.brief(e)))
   self.batchstatus.set(f'保留此前 {len(rows)} 件，续扫结果将在末尾追加。')
  def select_history(self,event=None):
   s=self.history.selection()
@@ -161,10 +161,13 @@ class App(base.App):
    if e.get('fixed_entries'):
     names='、'.join(dict.fromkeys(m['character'] for m in e.get('matches',[]))) or '暂无探员推荐'
     lead='活动心锚 · 推荐使用：'
+   elif e.get('decision')=='仅评分':
+    names='、'.join(dict.fromkeys(m['character'] for m in e.get('matches',[]) if m.get('score') is not None)) or '暂无达标探员推荐'
+    lead='建议（非 1 级只评分与建议，不落标记）：'
    else:
     names='、'.join(dict.fromkeys(m['character'] for m in e.get('eligible_matches',[]))) or '暂无满足推荐保留条件的探员'
     lead='满足推荐保留：'
-   self.historycaption.set(r['observation']['anchor']+'  ·  '+e['decision']+'  ·  数值 '+('固定词条' if e.get('fixed_entries') else score_text(e['value_score'],e['value_range']))+' / 匹配 '+('不评分' if e.get('fixed_entries') else score_text(e['match_score']))+'\n'+ui.brief(e)+'\n'+lead+names)
+   self.historycaption.set(r['observation']['anchor']+'  ·  '+e['decision']+'  ·  数值 '+('固定词条' if e.get('fixed_entries') else score_text(e['value_score'],e['value_range']))+' / 匹配 '+('不计匹配分' if e.get('fixed_entries') else score_text(e['match_score']))+'\n'+ui.brief(e)+'\n'+lead+names)
  def accept_model(self,value):
   self.model,changed=value;m=self.model
   try:settings=json.loads(self.store.config.read_text(encoding='utf-8'))
@@ -211,21 +214,26 @@ class App(base.App):
   except (FileNotFoundError,OSError):self.preview=None
   self.picture.configure(image=self.preview if self.preview else '',text='' if self.preview else '截图已清理',width=150,height=195)
   self.titlevar.set(f'{obs["anchor"]}  ·  等级 {obs.get("level","?")}  ·  {ev["entry_count"]} 条'+('固定词条' if ev.get('fixed_entries') else '词条'))
-  if ev.get('fixed_entries'):self.scoresvar.set('活动心锚 · 词条数值按原表固定，不评分')
+  if ev.get('fixed_entries'):self.scoresvar.set('活动心锚 · 词条固定且数值为满值 · 直接记 100 分')
+  elif ev.get('decision')=='仅评分':
+   self.scoresvar.set('数值分 '+score_text(ev['value_score'],ev['value_range'])+'（'+str(obs.get('level'))+' 级已折算到 1 级）    最高匹配分 '+score_text(ev['match_score']))
   else:self.scoresvar.set('数值分 '+score_text(ev['value_score'],ev['value_range'])+'    最高匹配分 '+score_text(ev['match_score']))
   self.fields.delete(*self.fields.get_children());details={str(d['position']):d for d in ev['value_details']}
   for key in ('1','2','3','4'):
    v=obs['entries'].get(key);d=details.get(key,{})
    if ev.get('fixed_entries'):
     self.fields.insert('','end',values=(key,d.get('stat') or '无','—',d.get('tier') or '—'));continue
+   shown=(str(v['value'])+('%' if v['unit']=='percent' else '')) if v else '—'
+   if d.get('level1'):
+    shown=shown+' → 1级 '+d['level1']+('%' if v['unit']=='percent' else '')
    self.fields.insert('','end',values=(key,v['stat'] if v else '无' if obs.get('presence',{}).get(key)=='absent' else '未确定',
-     (str(v['value'])+('%' if v['unit']=='percent' else '')) if v else '—',d.get('tier','—')))
+     shown,d.get('tier','—')))
   if ev.get('fixed_entries'):self.traitvar.set('；'.join(ev.get('trait_notes',[])) or '特性：按原表展示')
   else:self.traitvar.set('特性（仅供参考，不计分）：'+' / '.join(obs['traits'].get(k) or '无/未确定' for k in ('1','2')))
   normalized=[v['raw_stat']+' '+v['raw_value']+' → '+v['stat']+' '+v['value'] for v in obs['entries'].values() if v and 'raw_stat' in v and (v['raw_stat'],v['raw_value'])!=(v['stat'],v['value'])]
-  self.decision.set(ui.brief(ev) if ev.get('decision')=='活动心锚' else ev['decision']+'  ·  '+ui.brief(ev))
+  self.decision.set(ui.brief(ev) if ev.get('decision') in ('活动心锚','仅评分') else ev['decision']+'  ·  '+ui.brief(ev))
   self.results.delete(*self.results.get_children())
-  for i,m in enumerate(ev['matches']):self.results.insert('','end',iid=str(i),values=(m['character'],m['rank'] or '—',m['score'] if m.get('score') is not None else '不评分',ui.gate_brief(m)))
+  for i,m in enumerate(ev['matches']):self.results.insert('','end',iid=str(i),values=(m['character'],m['rank'] or '—',m['score'] if m.get('score') is not None else '不计匹配分',ui.gate_brief(m)))
   if ev['matches']:self.results.selection_set('0');self.show_detail()
   else:
    self.detail.configure(state='normal');self.detail.delete('1.0','end')

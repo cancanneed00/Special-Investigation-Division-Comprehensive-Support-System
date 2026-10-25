@@ -81,7 +81,9 @@ class BatchTests(unittest.TestCase):
    return result,b,rows,marks,progress
  def test_30_level_never_marks(self):
   r,b,rows,marks,_=self.run_case(apply=True,level=30)
-  self.assertEqual(marks,0);self.assertTrue(all(x['evaluation']['decision']=='跳过' for x in rows))
+  self.assertEqual(marks,0)
+  self.assertTrue(all(x['evaluation']['decision']=='仅评分' for x in rows))
+  self.assertTrue(all(x['action']=='仅评分 · 未标记（非1级）' for x in rows))
  def test_full_scan_overlapping_pages(self):
   r,b,rows,marks,progress=self.run_case();self.assertEqual(r['count'],10);self.assertEqual(marks,0)
   self.assertEqual(sum(op=='select' for op,k in b.calls),10);self.assertTrue(b.closed)

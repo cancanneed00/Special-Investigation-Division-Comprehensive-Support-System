@@ -36,7 +36,7 @@ def open_details(a):
  ttk.Label(shell,text=obs.get('anchor','心锚')+'  ·  '+e['decision'],style='Title.TLabel').pack(anchor='w')
  if e.get('fixed_entries'):
   count=len(e.get('matches',[]))
-  ttk.Label(shell,text=f'活动心锚 · 词条数值按原表固定，不评分    ·    推荐方案 {count} 个',foreground=theme.GOLD).pack(anchor='w',pady=(5,12))
+  ttk.Label(shell,text=f'活动心锚 · 词条固定、数值为满值，数值分 100    ·    推荐方案 {count} 个',foreground=theme.GOLD).pack(anchor='w',pady=(5,12))
  else:
   count=len({m['character'] for m in e.get('eligible_matches',[])})
   quality=number(e['value_score']) if e.get('value_score') is not None else score_range(e.get('value_range'))
@@ -78,7 +78,7 @@ def open_details(a):
   c=row['choices'][max(0,chooser.current())];m=row['match'];ok=(m['character'],c['rank']) in eligible
   body.configure(state='normal');body.delete('1.0','end')
   if m.get('no_score'):
-   body.insert('end','活动心锚 · 推荐使用（不评分）\n','pass')
+   body.insert('end','活动心锚 · 推荐使用（词条固定、数值满分，不评匹配分）\n','pass')
    body.insert('end',c.get('reason','')+'\n')
    if c.get('note'):body.insert('end','\n配装备注\n','heading');body.insert('end',c['note']+'\n','muted')
    body.configure(state='disabled');body.yview_moveto(0);return
@@ -125,8 +125,8 @@ def open_details(a):
 
  t=text_area(value);t.configure(state='normal')
  if e.get('fixed_entries'):
-  t.insert('end','活动心锚 · 固定词条\n','heading')
-  t.insert('end','词条数值由原表固定，不评数值分、不判档位；按原表展示如下。\n\n','muted')
+  t.insert('end','活动心锚 · 固定词条（数值为满值，直接记 100 分）\n','heading')
+  t.insert('end','词条数值由原表固定、本身就是满值，数值分直接记 100；不判档位、不评匹配分，按原表展示如下。\n\n','muted')
   for d in e.get('value_details',[]):
    t.insert('end',f"词条 {d['position']}  ·  {d['stat']}\n",'label')
    t.insert('end',str(d.get('basis',''))+'\n\n','muted')
@@ -137,9 +137,14 @@ def open_details(a):
   t.insert('end','只看词条数量和数值接近满值的程度，不看适合哪位探员。\n\n','muted')
   for d in e.get('value_details',[]):
    unit='%' if d.get('unit')=='percent' else ''
-   t.insert('end',f"词条 {d['position']}  ·  {d['stat']}  {d['value']}{unit}\n",'label')
+   head=f"词条 {d['position']}  ·  {d['stat']}  {d['value']}{unit}"
+   if d.get('level1'):
+    head+=f"  →  1 级等价 {d['level1']}{unit}（{d['level']} 级 / 上限 {d.get('level_n') or '?'} 级）"
+   t.insert('end',head+'\n','label')
    t.insert('end',f"档位：{d['tier']}    单条质量：{score_range(d['score_range'])} 分\n\n")
   if e.get('value_range'):t.insert('end',f"整体数值分：{score_range(e['value_range'])}\n")
+  if e.get('decision')=='仅评分':
+   t.insert('end','\n本件非 1 级：数值已按游戏等级成长曲线折算回 1 级等价值再评档位；只给评分与建议，不会锁定或标记放弃。\n','muted')
   for note in e.get('value_notes',[]):t.insert('end',str(note)+'\n','muted')
   t.insert('end','\n计算公式\n','heading');t.insert('end','100 × Σ（词条权重 × 当前值 / 满值）/ Σ权重 × min(1,词条数/3)\n权重：40% / 30% / 20% / 10%。缺失词条不占权重；2条及以下有缺条折扣。','muted');t.configure(state='disabled')
  t=text_area(reason);t.configure(state='normal');t.insert('end',e['decision']+'\n','heading')
@@ -169,7 +174,7 @@ def open_details(a):
    if row is None:return
    m=row;fbody.configure(state='normal');fbody.delete('1.0','end')
    if m.get('no_score'):
-    fbody.insert('end','活动心锚 · 推荐使用（不评分）\n','pass');fbody.insert('end',m.get('reason','')+'\n')
+    fbody.insert('end','活动心锚 · 推荐使用（数值满分，不评匹配分）\n','pass');fbody.insert('end',m.get('reason','')+'\n')
    else:
     fbody.insert('end',('满足推荐保留条件' if m.get('gate_pass') is True else '未满足推荐保留条件')+f"  ·  匹配 {number(m['score'])} 分\n",'pass' if m.get('gate_pass') is True else 'fail')
     checks={x['label']:x for x in m.get('gate_checks',[])}

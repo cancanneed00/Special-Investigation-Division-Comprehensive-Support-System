@@ -66,8 +66,8 @@ class DualTests(unittest.TestCase):
   # 未知/高歧异名称不静默错配，保留人工复核
   o=parse_ocr([{'box':[345,65,120,31],'text':'精雕紫钻钥匙','score':.9}],self.m)
   self.assertTrue(any(s.startswith('名称需核对') for s in o['issues']))
- def test_low_star_event_anchor_lists_usage_without_scores(self):
-  # 一二星活动心锚：显示原表固定词条与推荐探员，不评数值分与匹配度
+ def test_low_star_event_anchor_is_full_score_without_match(self):
+  # 一二星活动心锚：词条固定、数值为满值 → 数值分直接记 100，不评匹配度
   obs={'anchor':'雀姬奇物','level':1,'rarity':2,'entries':{},'traits':{},'issues':[]}
   r=evaluate(self.m,obs)
   self.assertEqual(r['decision'],'活动心锚')
@@ -75,11 +75,15 @@ class DualTests(unittest.TestCase):
   # invariant (a non-empty six-star list) rather than a hard-coded total
   self.assertTrue(len(r['matches'])>=8,len(r['matches']))
   self.assertTrue(all(m['no_score'] and m['score'] is None and m['rank'] in (1,2) for m in r['matches']))
-  self.assertIsNone(r['match_score']);self.assertIsNone(r['value_score']);self.assertEqual(r['matches5'],[])
+  self.assertIsNone(r['match_score'])
+  self.assertEqual(r['value_score'],100);self.assertEqual(r['value_range'],[100,100])
+  self.assertTrue(r.get('fixed_full'))
+  self.assertEqual(r['matches5'],[])
   self.assertTrue(r['fixed_entries']);self.assertEqual(r['entry_count'],3)
   self.assertEqual([d['stat'] for d in r['value_details']],['生命','护甲','生命'])
-  self.assertTrue(any('白星' in x for x in r['reasons']))
-  self.assertTrue(any('不评分' in x for x in r['reasons']))
+  self.assertTrue(all(d['score_range']==[100,100] for d in r['value_details']))
+  self.assertTrue(any('二星' in x for x in r['reasons']))
+  self.assertTrue(any('数值分直接记 100' in x for x in r['reasons']))
  def test_one_star_event_anchor_same_treatment(self):
   r=evaluate(self.m,{'anchor':'雀姬奇物','level':1,'rarity':1,'entries':{},'traits':{},'issues':[]})
   self.assertEqual(r['decision'],'活动心锚');self.assertTrue(any('一星' in x for x in r['reasons']))
