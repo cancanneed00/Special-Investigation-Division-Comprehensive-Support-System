@@ -8,9 +8,14 @@ $dailyTab=New-Object System.Windows.Forms.TabPage('主页')
 $seaTab=New-Object System.Windows.Forms.TabPage('认知海域')
 $dailyTab.Controls.Add($dailyPanel)
 $tabs.TabPages.AddRange(@($dailyTab,$seaTab));$form.Controls.Add($tabs)
-$form.MaximumSize=New-Object System.Drawing.Size(1196,859)
-$form.MinimumSize=New-Object System.Drawing.Size(1196,859)
+# 不再锁死 MaximumSize=MinimumSize，允许拖动边缘缩放；下限放宽以适配小屏。
+$form.MinimumSize=New-Object System.Drawing.Size(760,520)
 $form.ClientSize=New-Object System.Drawing.Size(1180,820)
+# 控件是固定坐标，窗口缩小后会被裁掉；滚动条挂在承载页上（Dock=Fill 的 TabControl 自身不滚动）。
+$dailyPanel.AutoScroll=$true
+$dailyPanel.AutoScrollMinSize=New-Object System.Drawing.Size(1180,780)
+$seaTab.AutoScroll=$true
+$seaTab.AutoScrollMinSize=New-Object System.Drawing.Size(1180,820)
 $seaTab.BackColor=[System.Drawing.Color]::FromArgb(20,25,30)
 
 # —— 标题 ——

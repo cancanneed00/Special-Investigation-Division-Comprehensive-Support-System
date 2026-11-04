@@ -30,7 +30,8 @@ class App(base.App):
  def __init__(self):
   self.policyvars={};self.events=queue.Queue();self.stop_event=threading.Event();self.batch_records=[]
   super().__init__();self.title('心锚适格评定终端 '+VERSION+'  ·  双评分与仓库整理')
-  self.minsize(960,680)
+  # 沿用 app.fit_window 的屏幕自适应结果；这里不再抬高下限，否则小屏仍无法缩到可用尺寸。
+  base.fit_window(self,1240,860,760,520)
   icon=Path(__file__).parent/'assets/app.png'
   if icon.exists():
    self.app_icon=ImageTk.PhotoImage(Image.open(icon));self.iconphoto(True,self.app_icon)
@@ -173,7 +174,7 @@ class App(base.App):
   try:settings=json.loads(self.store.config.read_text(encoding='utf-8'))
   except Exception:settings={}
   settings['workbook']=m['filename'];self.store.config.write_text(json.dumps(settings,ensure_ascii=False),encoding='utf-8')
-  self.summary.set(f'{len(m["characters"])} 探员 / {len(m["anchors"])} 心锚  ·  1 / 30级')
+  self.summary.set(f'{len(m["characters"])} 探员 / {len(m["anchors"])} 心锚  ·  任意等级')
   self.agent['values']=['全部探员']+[c['name'] for c in m['characters']];self.agent.current(0)
   self.filter_chars();self.show_rules();self.status.set('数据就绪。导入截图，或在游戏仓库中开始识别。')
   if not getattr(self,'maintenance_started',False):

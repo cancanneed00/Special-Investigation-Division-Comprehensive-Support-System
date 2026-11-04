@@ -10,10 +10,36 @@ from engine import Store,VERSION,recognize,evaluate
 ROOT=Path(__file__).resolve().parent.parent
 BG='#171725';PANEL='#222236';FG='#f0eef8';MUTED='#b0abc6';GOLD='#c8b5ff';BORDER='#38344f'
 
+def fit_window(win,design_w,design_h,min_w=760,min_h=520):
+    """按当前屏幕自适应初始尺寸，并保留系统自带的边缘拖拽缩放。
+
+    tkinter 默认 resizable(True,True) 就能拉边缘，无需自绘命中测试；这里显式
+    声明一次防止被后续代码关掉。minsize 只作为可用性下限，不挡住小屏缩放。
+    以前写死 1240x860 / minsize(1080,760)，在分辨率较低的电脑上窗口会超出
+    屏幕，边缘和按钮都点不到。
+    """
+    try:
+        sw=win.winfo_screenwidth();sh=win.winfo_screenheight()
+        w=max(min_w,min(design_w,sw-80));h=max(min_h,min(design_h,sh-120))
+        x=max(0,(sw-w)//2);y=max(0,(sh-h)//3)
+        win.geometry(f'{w}x{h}+{x}+{y}')
+        win.minsize(min_w,min_h)
+        win.resizable(True,True)
+    except Exception:
+        try:
+            win.geometry(f'{design_w}x{design_h}')
+            win.minsize(min_w,min_h)
+        except Exception:
+            pass
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__();self.title('心锚适格评定终端  '+VERSION+'  ·  识别与评分预览')
-        self.geometry('1240x860');self.minsize(1080,760);self.configure(bg=BG)
+        # 系统自带窗口缩放：tkinter 默认即可拖拽边缘，显式声明防止后续被关掉。
+        # 初始尺寸按当前屏幕自适应，避免低分辨率电脑上窗口超出屏幕、按钮点不到。
+        # 允许缩到 760x520（pack 布局会自动重排），用户也可随时拖动边缘或最大化。
+        fit_window(self,1240,860,760,520)
+        self.configure(bg=BG)
         self.store=Store(ROOT);self.model=None;self.obs=None;self.result=None;self.busy=False;self.jobs=queue.Queue()
         self.protocol('WM_DELETE_WINDOW',self.close)
         st=ttk.Style(self);st.theme_use('clam')

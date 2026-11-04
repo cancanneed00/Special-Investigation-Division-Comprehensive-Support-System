@@ -12,7 +12,7 @@ def open_resume(a):
  state=latest_checkpoint(base.ROOT)
  if not state:messagebox.showinfo('没有可续扫记录','请先完成至少一件仓库扫描。');return
  if state.get('legacy'):state['selected']=None if a.agent.get()=='全部探员' else [a.agent.get()]
- w=tk.Toplevel(a);w.title('断点与手动续扫');w.geometry('780x500');w.minsize(650,450);w.configure(bg=base.BG)
+ w=tk.Toplevel(a);w.title('断点与手动续扫');base.fit_window(w,780,500,620,420);w.configure(bg=base.BG)
  if hasattr(a,'app_icon'):w.iconphoto(True,a.app_icon)
  body=ttk.Frame(w,padding=18);body.pack(fill='both',expand=True)
  ttk.Label(body,text='从断点继续，不重新扫描顶部',style='Title.TLabel').pack(anchor='w')

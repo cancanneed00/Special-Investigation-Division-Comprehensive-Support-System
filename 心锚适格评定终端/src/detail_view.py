@@ -29,8 +29,7 @@ def open_details(a):
  e=copy.deepcopy(a.result);obs=copy.deepcopy(a.current_obs);rows=recommendation_rows(e)
  eligible={(m['character'],m['rank']) for m in e.get('eligible_matches',[])}
  w=tk.Toplevel(a);w.title('详细依据 · '+obs.get('anchor','心锚'));w.configure(bg=theme.BG)
- width=min(1040,w.winfo_screenwidth()-80);height=min(760,w.winfo_screenheight()-100)
- w.geometry(f'{width}x{height}');w.minsize(800,560)
+ theme.fit_window(w,1040,760,700,480)
  if hasattr(a,'app_icon'):w.iconphoto(True,a.app_icon)
  shell=ttk.Frame(w,padding=18);shell.pack(fill='both',expand=True)
  ttk.Label(shell,text=obs.get('anchor','心锚')+'  ·  '+e['decision'],style='Title.TLabel').pack(anchor='w')

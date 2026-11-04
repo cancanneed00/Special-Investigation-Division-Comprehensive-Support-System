@@ -3,6 +3,55 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# 无边框自绘窗口（FormBorderStyle=None）没有系统缩放边框，必须手写命中测试：
+# 拦截 WM_NCHITTEST，把靠近四边/四角的鼠标位置回报成对应的 HT* 缩放区域，
+# 系统就会显示双向箭头并进入拖拽缩放。标准 Sizable 边框窗口则无需这段。
+# 用 try/catch 兜底：万一即时编译不可用，退回普通 Form（仍可屏幕自适应+滚动）。
+try {
+ Add-Type -TypeDefinition @'
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+public class DutyResizableForm : Form {
+    private const int WM_NCHITTEST = 0x0084;
+    private const int HTCLIENT = 1;
+    private const int HTLEFT = 10, HTRIGHT = 11, HTTOP = 12;
+    private const int HTTOPLEFT = 13, HTTOPRIGHT = 14, HTBOTTOM = 15;
+    private const int HTBOTTOMLEFT = 16, HTBOTTOMRIGHT = 17;
+    private const int EDGE = 8;
+    protected override CreateParams CreateParams {
+        get { CreateParams cp = base.CreateParams; cp.Style |= 0x00040000; return cp; } // WS_THICKFRAME
+    }
+    protected override void WndProc(ref Message m) {
+        if (m.Msg == WM_NCHITTEST && FormBorderStyle == FormBorderStyle.None) {
+            base.WndProc(ref m);
+            if ((int)m.Result == HTCLIENT) {
+                long lp = m.LParam.ToInt64();
+                int sx = unchecked((short)(lp & 0xFFFF));
+                int sy = unchecked((short)((lp >> 16) & 0xFFFF));
+                Point p = PointToClient(new Point(sx, sy));
+                int w = ClientSize.Width, h = ClientSize.Height;
+                bool left = p.X <= EDGE, right = p.X >= w - EDGE;
+                bool top = p.Y <= EDGE, bottom = p.Y >= h - EDGE;
+                if (left && top) m.Result = (IntPtr)HTTOPLEFT;
+                else if (right && top) m.Result = (IntPtr)HTTOPRIGHT;
+                else if (left && bottom) m.Result = (IntPtr)HTBOTTOMLEFT;
+                else if (right && bottom) m.Result = (IntPtr)HTBOTTOMRIGHT;
+                else if (left) m.Result = (IntPtr)HTLEFT;
+                else if (right) m.Result = (IntPtr)HTRIGHT;
+                else if (top) m.Result = (IntPtr)HTTOP;
+                else if (bottom) m.Result = (IntPtr)HTBOTTOM;
+            }
+            return;
+        }
+        base.WndProc(ref m);
+    }
+}
+'@ -ReferencedAssemblies System.Windows.Forms,System.Drawing -ErrorAction Stop
+ $script:resizableFormType = 'DutyResizableForm'
+} catch { $script:resizableFormType = $null }
+
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $root 'lib\read-shared-text.ps1')
 . (Join-Path $root 'lib\assembly-loader.ps1')
@@ -17,13 +66,12 @@ $script:taskProcess = $null
 $script:lastLog = ''
 $script:stopAt = $null
 
-$form = New-Object System.Windows.Forms.Form
+if ($script:resizableFormType) { $form = New-Object DutyResizableForm } else { $form = New-Object System.Windows.Forms.Form }
 $form.Icon = New-Object System.Drawing.Icon((Join-Path $root 'ui-assets\app.ico'))
 $form.Text = '特调科执勤终端 2.2.15'
 $form.StartPosition = 'CenterScreen'
 $form.ClientSize = New-Object System.Drawing.Size(820, 790)
-$form.MinimumSize = New-Object System.Drawing.Size(836, 829)
-$form.MaximumSize = $form.MinimumSize
+$form.MinimumSize = New-Object System.Drawing.Size(760, 520)
 $form.MaximizeBox = $false
 $form.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 10)
 $form.BackColor = [System.Drawing.Color]::FromArgb(24, 25, 23)
@@ -237,12 +285,11 @@ $stopButton.ForeColor=[System.Drawing.Color]::FromArgb(215,159,140)
 
 # Artwork has its own column; every control sits on an opaque surface.
 $form.ClientSize=New-Object System.Drawing.Size(1180,780)
-$form.MinimumSize=New-Object System.Drawing.Size(1196,819)
-$form.MaximumSize=$form.MinimumSize
 $form.BackColor=[System.Drawing.Color]::FromArgb(20,25,30)
 $form.FormBorderStyle='None'
-$form.MinimumSize=New-Object System.Drawing.Size(1180,780)
-$form.MaximumSize=$form.MinimumSize
+# 无边框窗口没有系统缩放边框，边缘拖拽由 DutyResizableForm 的 WM_NCHITTEST 提供。
+# 不再用 MinimumSize=MaximumSize 锁死尺寸；下限放宽，配合 AutoScroll 兜底小屏。
+$form.MinimumSize=New-Object System.Drawing.Size(760,520)
 $title.Text='特调科执勤终端';$title.Location=New-Object System.Drawing.Point(26,28)
 $title.Font=New-Object System.Drawing.Font('Microsoft YaHei UI',22,[System.Drawing.FontStyle]::Bold)
 $subtitle.Text='SPECIAL INVESTIGATION  /  02.0';$subtitle.Location=New-Object System.Drawing.Point(29,78)
@@ -460,12 +507,23 @@ $appClose.Text='×';$appClose.FlatStyle='Flat';$appClose.FlatAppearance.BorderSi
 $appClose.BackColor=[System.Drawing.Color]::FromArgb(30,34,40);$appClose.ForeColor=[System.Drawing.Color]::FromArgb(214,96,84)
 $appClose.Font=New-Object System.Drawing.Font('Microsoft YaHei UI',16,[System.Drawing.FontStyle]::Bold)
 $appClose.SetBounds($form.ClientSize.Width-40,6,34,30);$appClose.Cursor='Hand'
+$appClose.Anchor=[System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
 $appClose.Add_Click({$form.Close()})
 $form.Controls.Add($appClose);$appClose.BringToFront()
 $script:seaDrag=$false;$script:seaDragStart=[System.Drawing.Point]::Empty
 $tabs.Add_MouseDown({param($s,$e)if($e.Button-eq'Left'-and$e.Y-le 30){$script:seaDrag=$true;$script:seaDragStart=$e.Location}})
 $tabs.Add_MouseMove({param($s,$e)if($script:seaDrag){$cur=[System.Windows.Forms.Cursor]::Position;$form.Location=New-Object System.Drawing.Point($cur.X-$script:seaDragStart.X,$cur.Y-$script:seaDragStart.Y)}})
 $tabs.Add_MouseUp({param($s,$e)$script:seaDrag=$false})
+# 固定坐标布局缩小后的滚动兜底由 sea-page.ps1 挂在各 TabPage 上；
+# 此处只做窗口尺寸按当前屏幕工作区自适应（排除任务栏），避免按钮落在屏幕外。
+try {
+ $area=[System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+ $maxW=[Math]::Max(760,$area.Width-32);$maxH=[Math]::Max(520,$area.Height-48)
+ $w=[Math]::Min(1180,$maxW);$h=[Math]::Min(780,$maxH)
+ $form.ClientSize=New-Object System.Drawing.Size($w,$h)
+ $form.StartPosition='Manual'
+ $form.Location=New-Object System.Drawing.Point(($area.Left+[Math]::Max(0,($area.Width-$w)/2)),($area.Top+[Math]::Max(0,($area.Height-$h)/2)))
+} catch { }
 if($PreviewPath) {
  $timer.Stop(); $form.ShowInTaskbar=$false; $form.Opacity=0; $form.Show(); [System.Windows.Forms.Application]::DoEvents()
  $form.CreateControl(); function Initialize-PreviewControls($parent) { foreach($child in $parent.Controls) { $null=$child.Handle; if($child.HasChildren){Initialize-PreviewControls $child} } }; Initialize-PreviewControls $form
