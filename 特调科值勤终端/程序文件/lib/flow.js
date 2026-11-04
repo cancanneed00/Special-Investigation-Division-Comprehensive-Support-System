@@ -15,8 +15,19 @@ class Flow extends Vision {
       await this.template('流程_加载进度条.png',[120,610,1100,110],0.70);
   }
   async click(target, label) {
-    if (await this.loading()) {const error=new Error('正在加载，等待重新识别后点击');error.code='PAGE_TRANSITION';throw error;}
-    return super.click(target,label);
+    // 过场加载中直接点击会落空甚至误点。先就地消化短暂加载（少量重试），覆盖 wait() 之外的
+    // 所有点击点 —— 认知海域结算/短暂灵感、事务所导航、外部招募、升级弹窗等（均直接调 v.click），
+    // 避免瞬时加载就冒泡成「任务失败：正在加载…」。
+    // 若加载持续超过阈值（真正的页面过渡而非小转圈），仍抛 PAGE_TRANSITION，
+    // 交由 Vision.act 的 transition 重试逻辑重新识别按钮，而非点击陈旧坐标（沿用原有设计）。
+    const QUICK = 4;
+    for (let i = 0; i < QUICK; i++) {
+      if (!(await this.loading())) return super.click(target, label);
+      await sleep(i < 2 ? 250 : 500);
+    }
+    const error = new Error('正在加载，等待重新识别后点击');
+    error.code = 'PAGE_TRANSITION';
+    throw error;
   }
   async act(probe,expected,label,options){
     return super.act(()=>this.frame(async()=>!await this.loading() && await probe()),expected,label,options);

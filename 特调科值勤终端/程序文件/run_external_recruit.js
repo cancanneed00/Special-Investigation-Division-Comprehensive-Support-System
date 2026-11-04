@@ -1,6 +1,7 @@
-const {enterExternal,occupiedSlots}=require('./lib/recruit-sidebar');
+const {enterExternal,occupiedSlots,externalPage}=require('./lib/recruit-sidebar');
 const {Flow,integer,sleep} = require('./lib/flow');
 const {finishRecruitResult}=require('./lib/recruit-result');
+const {dismissLevelUp}=require('./lib/dismiss-popup');
 // 右上角 HUD 的「外招券」数量格（游戏后台捕获恒归一化到 1280×720，故该坐标各机器一致）。
 // 只框住第一格（券图标+数量），右边界刻意收在其后另一货币之前，避免把旁边的数量一并读进来。
 // 数字被 OCR 成纯数字才采信，故图标会被 ^[0-9]+$ 过滤掉。
@@ -24,8 +25,10 @@ async function readTicketCount(v){
 }
 async function run(session) {
  const v=new Flow(session);
+ // 状态判据：招募循环内用它区分「启动招募 / 招募成功 / 任务已满」三种分支。
  const marker=()=>v.ocr('^(启动招募|招募成功|任务已满)$',[800,400,480,320]);
- await enterExternal(v,marker);
+ // 进入外部招募改用「页面判据」（外部招募页独有：大标题/EXTERNAL RECRUIT/状态按钮 启动招募·任务已满·招募成功）。
+ await enterExternal(v,()=>externalPage(v));
  // 外招券为 0 时无可招募券：直接退回主界面并正常结束，不再进入必然失败的招募循环。
  // 读不出数量时按未知处理，继续原流程（保持既有行为，避免误跳过）。
  const tickets=await readTicketCount(v);
@@ -35,6 +38,8 @@ async function run(session) {
   return;
  }
  for(let round=0;round<12;round++) {
+  // 升级弹窗会盖住招募状态页，先关掉再等状态，避免 v.wait 超时。
+  if(await dismissLevelUp(v,{name:'外部招募'}))continue;
   const state=await v.wait(marker,'招募状态',{timeout:15000});
   const text=state.detail.best.text;
   if(text==='任务已满'){await v.homeReturn();return;}

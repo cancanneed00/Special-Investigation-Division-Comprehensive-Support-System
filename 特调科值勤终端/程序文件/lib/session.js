@@ -1,6 +1,42 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
+
+// 反多开防护：在已确认恰好 1 个可见游戏窗口后，再查是否有“看不见的残留进程”。
+// 游戏的多开判定基于进程/互斥锁，常因上一次未正常退出而残留一个无窗口的进程，
+// 导致终端连上了、游戏却弹出“请只打开一个客户端”。此探针给出带 PID 的准确诊断。
+// 任何枚举异常都静默回退到既有“仅窗口”判定，绝不改变正常流程。
+function probeGameInstances(){
+  let cp;
+  try{ cp=require('child_process'); }catch(_){ return; }
+  let psPath;
+  try{
+    const os=require('os');
+    psPath=path.join(os.tmpdir(),'sea_probe_'+process.pid+'.ps1');
+    fs.writeFileSync(psPath,[
+      '$vis=Get-Process | Where-Object { $_.MainWindowTitle -like \'*异象回声*\' }',
+      'if($vis.Count -eq 0){@{visible=0;all=0;exe=$null;visiblePids=@();allPids=@()}|ConvertTo-Json;exit}',
+      '$exe=($vis|Select-Object -First 1).ProcessName',
+      '$all=Get-Process -Name $exe -ErrorAction SilentlyContinue',
+      '@{visible=$vis.Count;all=$all.Count;exe=$exe;visiblePids=@($vis|ForEach-Object{$_.Id});allPids=@($all|ForEach-Object{$_.Id})}|ConvertTo-Json'
+    ].join('\n'),'utf8');
+    const out=cp.execSync('powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+psPath+'"',{encoding:'utf8',timeout:15000});
+    const o=JSON.parse(out);
+    const norm=a=>Array.isArray(a)?a:(a==null?[]:[a]);
+    const vis=norm(o.visiblePids).map(Number), all=norm(o.allPids).map(Number);
+    const hidden=all.filter(p=>!vis.includes(p));
+    if(all.length>vis.length){
+      throw new Error('检测到 '+all.length+' 个异象回声进程（其中 '+hidden.length+' 个没有可见窗口，疑似上次未正常退出的残留进程）。游戏会因此判定为多开并弹出“请只打开一个客户端”。请在任务管理器结束以下残留 PID 后重试：'+hidden.join(', ')+'。');
+    }
+    console.log('反多开探针：可见窗口 '+vis.length+' 个，进程总数 '+all.length+' 个，未发现残留进程');
+  }catch(e){
+    if(/残留进程|未正常退出/.test(e.message))throw e;  // 真实命中：抛出带 PID 的准确诊断
+    // 枚举失败（无 PowerShell / 超时 / 解析异常）：安静回退，不影响既有连接逻辑
+  }finally{
+    if(psPath){ try{ fs.unlinkSync(psPath); }catch(_){ } }
+  }
+}
+
 class Session {
   constructor(maa = require('../node_modules/@maaxyz/maa-node'), inputMode = 'compatible') {
     if (!['strict', 'compatible'].includes(inputMode)) throw new Error('未知输入模式');
@@ -54,6 +90,7 @@ class Session {
     m.Global.reco_image_cache_limit='8';
     const matches = (await m.Win32Controller.find()).filter(x => x[1] === 'UnityWndClass' && x[2] === '异象回声');
     if (matches.length !== 1) throw new Error(`应只打开一个异象回声客户端，当前找到 ${matches.length} 个`);
+    probeGameInstances();   // 反多开探针：查看不见的残留进程（命中即带 PID 抛出，否则静默回退）
     this.controller = new m.Win32Controller(matches[0][0], m.Win32ScreencapMethod.Background,
       this.inputMode === 'compatible' ? m.Win32InputMethod.PostMessageWithWindowPos : m.Win32InputMethod.AnchoredTouch,
       m.Win32InputMethod.PostMessage);

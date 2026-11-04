@@ -4,6 +4,7 @@ let vision;
 const fs = require("fs");
 const path = require("path");
 const maa = require("./node_modules/@maaxyz/maa-node");
+const { dismissLevelUp } = require("./lib/dismiss-popup");
 
 const ROOT = __dirname;
 const LOG_FILE = path.join(ROOT, "运行_危机行动.log");
@@ -20,7 +21,7 @@ function log(...values) {
     typeof value === "string" ? value : JSON.stringify(value)
   ).join(" ")}`;
   console.log(line);
-  fs.appendFileSync(LOG_FILE, `${line}\n`, "utf8");
+  try { fs.appendFileSync(LOG_FILE, `${line}\n`, "utf8"); } catch(_) {}
 }
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -155,7 +156,7 @@ async function readQuickCount(attempts = 12) {
 }
 
 function saveState(targetCount) {
-  fs.writeFileSync(STATE_FILE, `${JSON.stringify({ targetCount }, null, 2)}\n`, "utf8");
+  try { fs.writeFileSync(STATE_FILE, `${JSON.stringify({ targetCount }, null, 2)}\n`, "utf8"); } catch(_) {}
 }
 
 function recoverTargetCount(previousLog) {
@@ -172,7 +173,7 @@ function recoverTargetCount(previousLog) {
 }
 
 function clearState() {
-  if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
+  if (fs.existsSync(STATE_FILE)) { try { fs.unlinkSync(STATE_FILE); } catch(_) {} }
 }
 
 async function setQuickCount(target) {
@@ -202,8 +203,14 @@ async function returnHome() {
   await returnFromSystemToHome();
 }
 
+// 升级弹窗处理已抽到 lib/dismiss-popup.js（dismissLevelUp），下方循环里统一调用。
+
+
+
 async function closeQuickResult() {
-  for (let attempt=0; attempt<30; attempt++) {
+  for (let attempt=0; attempt<40; attempt++) {
+    // 升级弹窗可能盖在结果页上，先关闭再处理结果。
+    if (await dismissLevelUp(vision, { name: '危机行动', log })) continue;
     if (await vision.reward()) {
       await vision.dismissReward(() => vision.ocr('^快速完成$', [760,590,360,130]));
       return;
@@ -220,18 +227,30 @@ async function closeQuickResult() {
   throw new Error('快速完成结果未确认关闭');
 }
 
+async function waitQuickCompleteResult() {
+  // 出发后战斗/结算期间可能弹出「升级弹窗」，必须先关闭它才能看到结果页。
+  // 循环：优先关闭升级弹窗；否则检测结果页（标题/右下角确定/获取物资）后交给 closeQuickResult 处理。
+  for (let i = 0; i < 60; i++) {
+    if (await dismissLevelUp(vision, { name: '危机行动', log })) continue;
+    const title = await ocr("^快速完成结果$", [0, 0, 850, 250], { attempts: 4, delay: 350 });
+    const confirm = await ocr("^确定$", [950, 590, 270, 120], { attempts: 4, delay: 350 });
+    const reward = await vision.reward();
+    if (title || confirm || reward) {
+      await closeQuickResult();
+      return;
+    }
+    await sleep(400);
+  }
+  throw new Error("等待界面超时：快速完成结果");
+}
+
 async function finishQuickAction(targetCount) {
   const usedCount=await setQuickCount(targetCount);
   await clickOcr("^出发$", [680, 480, 380, 150], "出发", {
     attempts: 10,
     postDelay: 800,
   });
-  // 结果页标题是描边艺术字叠在角色立绘上，部分机器 OCR 读不出全串，
-  // 故先等标题，读不到再等右下角「确定」按钮（实心色块+黑字，识别率高）兜底
-  let resultPage = await ocr("^快速完成结果$", [0, 0, 850, 250], { attempts: 12, delay: 500 });
-  if (!resultPage) resultPage = await ocr("^确定$", [950, 590, 270, 120], { attempts: 10, delay: 500 });
-  if (!resultPage) throw new Error("等待界面超时：快速完成结果");
-  await closeQuickResult();
+  await waitQuickCompleteResult();
   await returnHome();
   clearState();
   await capture(IMAGE_FILE);
@@ -239,8 +258,8 @@ async function finishQuickAction(targetCount) {
 }
 
 async function run(session,{createVision=s=>new Vision(s)}={}) {
-  const previousLog = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, "utf8") : "";
-  fs.appendFileSync(LOG_FILE, `\n===== ${new Date().toISOString()} 新一轮危机行动 =====\n`, "utf8");
+  let previousLog = ""; try { if (fs.existsSync(LOG_FILE)) previousLog = fs.readFileSync(LOG_FILE, "utf8"); } catch(_) {}
+  try { fs.appendFileSync(LOG_FILE, `\n===== ${new Date().toISOString()} 新一轮危机行动 =====\n`, "utf8"); } catch(_) {}
   ({controller, resource, tasker} = session);
   vision = createVision(session);
 

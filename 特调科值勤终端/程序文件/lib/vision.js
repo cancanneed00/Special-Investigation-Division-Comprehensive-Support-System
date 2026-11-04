@@ -23,17 +23,24 @@ class Vision {
   async capture(file) {
     this.s.check();
     const started=Date.now();
-    const image = await this.s.operation('后台截图',()=>this.s.controller.post_screencap().wait().get());
-    this.captureMs=Date.now()-started;
-    if (!image) throw new Error('后台截图失败，停止操作');
-    const b = Buffer.from(image);
-    if (file) fs.writeFileSync(file, b);
-    try { this.size = validateSize(b, {friendFullscreen: this.s.friendFullscreen === true}); }
-    catch (error) {
-      const path = require('path');
-      fs.writeFileSync(path.join(__dirname, '..', '启动检查_尺寸异常.png'), b);
-      throw error;
+    let image=null, b=null;
+    for (let attempt=0; ; attempt++) {
+      try {
+        image = await this.s.operation('后台截图',()=>this.s.controller.post_screencap().wait().get());
+        if (!image) throw new Error('后台截图返回为空');
+        b = Buffer.from(image);
+        if (file) { try { fs.writeFileSync(file, b); } catch(_) { console.log('截图保存失败：'+file); } }
+        this.size = validateSize(b, {friendFullscreen: this.s.friendFullscreen === true});
+        break;
+      } catch (error) {
+        // 抗逆：截图偶发失败（控制器瞬间繁忙/窗口抖动）多试几次，不抢鼠标、不立即放弃
+        if (attempt < 3) { await sleep(120); continue; }
+        const p = require('path');
+        try { if(b) fs.writeFileSync(p.join(__dirname, '..', '启动检查_尺寸异常.png'), b); } catch(_) {}
+        throw error;
+      }
     }
+    this.captureMs=Date.now()-started;
     this.lastImage=b;
     return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
   }
@@ -48,10 +55,19 @@ class Vision {
     const started=Date.now();
     let reco;
     try { reco=await this.s.operation(type==='OCR'?'OCR 识别':'模板识别',async()=>{
-      const job = await this.s.tasker.post_recognition(type, param, image).wait();
-      const result = await job.get();
-      const node = result?.nodes?.[0] ? this.s.tasker.node_detail(result.nodes[0]) : null;
-      return node?.reco || null;
+      let node=null;
+      for (let r=0; ; r++) {
+        try {
+          const job = await this.s.tasker.post_recognition(type, param, image).wait();
+          const result = await job.get();
+          node = result?.nodes?.[0] ? this.s.tasker.node_detail(result.nodes[0]) : null;
+          return node?.reco || null;
+        } catch (err) {
+          // 抗逆：识别偶发失败多试几次（不抢鼠标），吸收瞬时干扰
+          if (r < 3) { await sleep(150); continue; }
+          throw err;
+        }
+      }
     }); } catch(error){this.saveDiagnostic('识别调用失败：'+error.message);throw error;}
     this.lastRecognition={type,param,captureMs:this.captureMs,recognitionMs:Date.now()-started,requestedProvider:this.s.performance.provider,detail:reco?.detail||null};
     this.pendingRecognition=null;
@@ -100,7 +116,9 @@ class Vision {
       end=Math.min(hardEnd,Math.max(end,waitStart+timeout*this.slowScale+stable*longestProbe+(stable-1)*interval));
       this.s.check();
       if(now()>end)break;
-      n = result ? n + 1 : 0;
+      // 抗干扰：单次识别受鼠标干扰而落空时，仅减 1 而非清零，避免整段重新稳定；
+      // 需连续 stable 次命中才确认，瞬态抖动不影响最终结果。
+      n = result ? n + 1 : Math.max(0, n - 1);
       if (n >= stable) return result;
       await pause(interval);
     }

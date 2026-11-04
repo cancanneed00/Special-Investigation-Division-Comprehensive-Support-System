@@ -4,6 +4,10 @@ const { Session, ROOT } = require('./lib/session');
 const { Vision } = require('./lib/vision');
 const { recover } = require('./lib/navigation');
 const { verifyInput } = require('./lib/input-check');
+// 瞬时文件锁（杀软/索引器/编辑器独占）绝不应让终端整体崩溃：这些都不是关键写入。
+const safeUnlink=p=>{try{fs.unlinkSync(p);}catch(_){}};
+const safeWriteSync=(p,d)=>{try{fs.writeFileSync(p,d);}catch(_){}};
+const safeRm=p=>{try{fs.rmSync(p,{force:true});}catch(_){}};
 const TASKS = [
   ['shop_daily','商店每日奖励','run_shop_daily_reward.js',180000],
   ['office_interpret','事务所解读与分解','run_office_interpret.js',900000],
@@ -45,7 +49,7 @@ function plan(config) {
 async function main() {
   const config=JSON.parse(fs.readFileSync(path.join(ROOT,'启动配置.json'),'utf8').replace(/^\uFEFF/,''));
   config.inputMode='compatible';
-  config.office={first:'星砂',second:'金钱',...(config.office||{}),count:'all'};
+  config.office={first:'星砂',second:'金钱',decompose:true,count:'all',...(config.office||{})};
   config.stamina='红币';
   const tasks=plan(config);
   if(config.inputMode && !['strict','compatible'].includes(config.inputMode))throw new Error('未知输入模式');
@@ -55,26 +59,26 @@ async function main() {
     const choices=['金钱','经验','星砂','材料'];
     if(!choices.includes(office.first)||!choices.includes(office.second)||office.first===office.second||![1,3,'all'].includes(office.count))
       throw new Error('事务所优先级或解读数量无效');
-    fs.writeFileSync(path.join(ROOT,'事务所配置.json'),JSON.stringify({'第一优先':office.first,'第二优先':office.second,'解读数量':office.count}));
+    safeWriteSync(path.join(ROOT,'事务所配置.json'),JSON.stringify({'第一优先':office.first,'第二优先':office.second,'解读数量':office.count,'分解':office.decompose!==false}));
   }
   if(tasks.some(t=>t[0]==='stamina_clear')) {
-    fs.writeFileSync(path.join(ROOT,'清体力配置.json'),JSON.stringify({'刷取目标':config.stamina}));
+    safeWriteSync(path.join(ROOT,'清体力配置.json'),JSON.stringify({'刷取目标':config.stamina}));
   }
   const lock=path.join(ROOT,'运行锁.json');
   if(fs.existsSync(lock)) {
     const pid=JSON.parse(fs.readFileSync(lock,'utf8')).pid;
     let alive=true;try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')alive=false;else throw e;}
     if(alive)throw new Error('已有终端任务正在运行，请先停止');
-    fs.unlinkSync(lock);
+    safeUnlink(lock);
   }
   const fd=fs.openSync(lock,'wx');fs.writeFileSync(fd,JSON.stringify({pid:process.pid}));fs.closeSync(fd);
   fs.mkdirSync(path.join(ROOT,'日志记录'),{recursive:true});
   if(fs.existsSync(LOG))fs.copyFileSync(LOG,path.join(ROOT,'日志记录',`运行_${Date.now()}.log`));
   const archives=fs.readdirSync(path.join(ROOT,'日志记录')).filter(x=>/^运行_\d+\.log$/.test(x)).sort().reverse();
-  for(const file of archives.slice(20))fs.unlinkSync(path.join(ROOT,'日志记录',file));
-  fs.writeFileSync(LOG,'');
+  for(const file of archives.slice(20))safeUnlink(path.join(ROOT,'日志记录',file));
+  safeWriteSync(LOG,'');
   cleanupLogs(ROOT);
-  fs.writeFileSync(SUMMARY,'');
+  safeWriteSync(SUMMARY,'');
   appendSummary(SUMMARY,'正在准备游戏与连接检查');
   const original=console.log;
   console.log=(...args)=>{const message=args.join(' ');const text=`[${new Date().toISOString()}] ${message}`;fs.appendFileSync(LOG,text+'\n');const brief=importantLine(message);if(brief)appendSummary(SUMMARY,brief);original(text);};
@@ -116,6 +120,15 @@ async function main() {
       throw error;
     }
     clearTimeout(hardTimer);
+    // 每轮运行开始前，清掉上一轮可能残留的「外部招募降级触发」标记，
+    // 确保只有本轮真正 OCR 失效进入降级，才会在整轮结束后提示用户切换流程。
+    try{
+      const fbPath=path.join(ROOT,'外部招募降级状态.json');
+      if(fs.existsSync(fbPath)){
+        const fb=JSON.parse(fs.readFileSync(fbPath,'utf8'));
+        if(fb.fallbackTriggeredThisRun){fb.fallbackTriggeredThisRun=false;fs.writeFileSync(fbPath,JSON.stringify(fb,null,2));}
+      }
+    }catch(_){}
     for(let i=0;i<tasks.length;i++) {
       const [id,name,script,timeout]=tasks[i];
       const taskStarted=Date.now();
@@ -164,7 +177,7 @@ async function main() {
     await session.close();
     cleanupLogs(ROOT);
     console.log=original;
-    fs.rmSync(lock,{force:true});
+    safeRm(lock);
   }
 }
 if(require.main===module && process.env.ECHOES_WORKER!=='1' && !process.argv.includes('--dry-run')) {

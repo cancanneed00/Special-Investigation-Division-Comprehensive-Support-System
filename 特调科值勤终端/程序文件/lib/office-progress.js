@@ -1,8 +1,11 @@
 const {sleep}=require('./vision');
+const {dismissLevelUp}=require('./dismiss-popup');
 async function finishCard(office,{pause=sleep,now=Date.now,timeout=30000}={}){
  const v=office.v;let blanks=0;
  try {
   await v.wait(async()=>{
+   // 升级弹窗会盖住结果/过场页，先关掉再判定，避免 v.wait 超时。
+   if(await dismissLevelUp(v,{name:'事务所解读'}))return false;
    if(await v.loading())return false;
    if(await v.reward()){await v.rewardClick();return false;}
    if(await office.archive())return !!(await office.firstCard()||await office.empty());

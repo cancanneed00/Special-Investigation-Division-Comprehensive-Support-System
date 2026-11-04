@@ -1,8 +1,9 @@
 const {Flow,integer,sleep}=require('./flow');
 const {OfficeInventory}=require('./office-inventory');
+const {dismissLevelUp}=require('./dismiss-popup');
 function refillAllowed(keys){return Number.isInteger(keys)&&keys>=60;}
 class OfficeFlow {
- constructor(v,first='星砂',second='金钱'){this.v=v;this.first=first;this.second=second;}
+ constructor(v,first='星砂',second='金钱',decompose=true){this.v=v;this.first=first;this.second=second;this.decompose=decompose;}
  meditation(){return this.v.ocr('^冥想日志$',[300,0,680,180]);}
  home(){return this.v.ocr('^库存$',[720,620,180,100]);}
  empty(){return this.v.ocr('^暂无档案残片$',[300,200,850,320]);}
@@ -27,6 +28,8 @@ class OfficeFlow {
  async readCards(){
   const v=this.v;
   for(let round=0;round<64;round++){
+   // 升级弹窗会盖住解读仪式页，先关掉再继续，避免后续判定被阻塞。
+   if(await dismissLevelUp(v,{name:'事务所解读'}))continue;
    await v.wait(()=>this.archive(),'解读仪式页');
    if(!await this.firstCard()&&await this.empty())return 'empty';
    await v.step(()=>this.firstCard(),()=>this.candidatePage(),'选择第一张档案卡');
@@ -46,22 +49,47 @@ class OfficeFlow {
  async refill(){
   const v=this.v;
   const modal=()=>v.ocr('^追加档案残片$',[400,110,520,110]);
-  await v.textStep('^追加档案残片$',modal,'打开追加档案残片',[780,560,470,150]);
-  const keys=integer(await v.wait(()=>v.ocr('^[0-9]+$',[590,225,105,75]),'追加前钥匙数量'));
-  if(!Number.isInteger(keys))throw new Error('钥匙数量无法确认');
-  if(!refillAllowed(keys)) {
-   console.log(`钥匙 ${keys}，不足60，取消追加后继续清仓`);
-   await v.textStep('^取消$',async()=>!await modal()&&await this.empty(),'取消追加',[300,450,320,100]);
+  if(!await modal())await v.textStep('^追加档案残片$',modal,'打开追加档案残片',[780,560,470,150]);
+  try{
+   // 钥匙数量读取：OCR 可能滞后于弹窗动画，最多重试两次。
+   let keys=null;
+   for(let i=0;i<2 && !Number.isInteger(keys);i++){keys=integer(await v.ocr('^[0-9]+$',[560,200,200,130]));if(!Number.isInteger(keys))await sleep(400);}
+   if(!Number.isInteger(keys)){
+    console.log('钥匙数量无法确认，保守起见取消追加并继续清仓');
+    await this.forceCloseModal(modal);
+    return false;
+   }
+   if(!refillAllowed(keys)){
+    console.log(`钥匙 ${keys}，不足60，取消追加后继续清仓`);
+    await this.forceCloseModal(modal);
+    return false;
+   }
+   const qty=async()=>integer(await v.ocr('^[0-9]+$',[570,370,110,80]));
+   const before=await qty();if(before!==1)throw new Error('追加初始数量不是1，停止以免多花钥匙');
+   // Exactly one increment, then reread. Do not blindly resend an increment.
+   if(keys>=120)await v.step(()=>v.template('流程_追加加号.png',[650,340,250,130],0.76),async()=>await qty()===Math.min(2,Math.floor(keys/60)),'追加数量加一',{irreversible:true});
+   const remaining=integer(await v.ocr('^-?[0-9]+$',[735,225,100,80]));
+   if(remaining===null||remaining<0)throw new Error('追加后的钥匙余额无效');
+   await v.textStep('^追加$',async()=>!await modal()&&await this.archive()&&await this.firstCard(),'确认追加并检查新卡片',[650,450,300,100],{irreversible:true});
+   return true;
+  }catch(error){
+   // 任何异常都必须先把弹窗关掉，避免卡在“追加档案残片”界面导致后续步骤全部失败。
+   console.log('补充卡片异常，强制取消追加弹窗后继续清仓：'+error.message);
+   await this.forceCloseModal(modal).catch(()=>{});
    return false;
   }
-  const qty=async()=>integer(await v.ocr('^[0-9]+$',[570,370,110,80]));
-  const before=await qty();if(before!==1)throw new Error('追加初始数量不是1，停止以免多花钥匙');
-  // Exactly one increment, then reread. Do not blindly resend an increment.
-  if(keys>=120)await v.step(()=>v.template('流程_追加加号.png',[650,340,250,130],0.76),async()=>await qty()===Math.min(2,Math.floor(keys/60)),'追加数量加一',{irreversible:true});
-  const remaining=integer(await v.ocr('^-?[0-9]+$',[735,225,100,80]));
-  if(remaining===null||remaining<0)throw new Error('追加后的钥匙余额无效');
-  await v.textStep('^追加$',async()=>!await modal()&&await this.archive()&&await this.firstCard(),'确认追加并检查新卡片',[650,450,300,100],{irreversible:true});
-  return true;
+ }
+ // 安全关闭“追加档案残片”弹窗：优先点“取消”文字，识别不到则用已知坐标兜底，最多尝试 3 次。
+ async forceCloseModal(modal){
+  const v=this.v;
+  for(let attempt=0;attempt<3;attempt++){
+   if(!await modal())return;
+   const reco=await v.ocr('^取消$',[150,380,680,280]);
+   if(reco){ await v.click(reco,'取消追加').catch(()=>{}); }
+   else { try{ await v.s.controller.post_click(462,493).wait(); }catch(_){} }
+   await sleep(700);
+  }
+  if(await modal())console.log('警告：取消追加弹窗未能关闭，后续步骤可能受影响');
  }
  async readAllAndRefill(){
   while(true){
@@ -83,7 +111,11 @@ class OfficeFlow {
   if(outcome==='empty')await v.wait(()=>this.empty(),'全部档案解读完毕');
   else console.log('缺货退出已确认；保留未解读档案，继续库存整理并返回主页');
   await v.back(()=>this.home());
-  await new OfficeInventory(v).run();
+  if(this.decompose){
+    await new OfficeInventory(v).run();
+  } else {
+    console.log('已选择不执行分解：解读完成后直接返回主页');
+  }
   await this.returnHome();
  }
  async returnHome(){

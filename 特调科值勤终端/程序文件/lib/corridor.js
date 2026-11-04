@@ -1,5 +1,6 @@
 const {sleep}=require('./flow');
 const {corridorResult}=require('./corridor-result');
+const {dismissLevelUp}=require('./dismiss-popup');
 // 回廊关卡页左下角的「黑胶上限 X/480」计数（游戏后台捕获恒归一化到 1280×720，坐标各机器一致）。
 // 区块内还有唱片图标、「黑胶上限」标签和「剩余N天」角标，用数字/数字的 Pattern 只取计数本身，
 // 其余文字不会被匹配；全角斜杠与带空格写法都接受。
@@ -30,6 +31,8 @@ async function sweepCorridor(v,{maxRounds=100,pause=sleep}={}) {
  const detail=async()=>!await stamina()&&!await corridorResult(v)&&!await v.ocr('^出发$',[650,450,420,180])&&await v.ocr('^扫荡$',[850,570,300,150]);
  const stamina=()=>v.ocr('^下次恢复时间$',[350,0,700,220]);
  for(let round=1;round<=maxRounds;round++){
+  // 升级弹窗会盖住回廊结果页，先关掉再继续，避免后续判定被阻塞。
+  if(await dismissLevelUp(v,{name:'清体力回廊'}))continue;
   await v.textStep('^扫荡$',async()=>await stamina()||await v.ocr('^出发$',[650,450,420,180]),`第${round}次扫荡`,[850,570,300,150]);
   if(await stamina()){
    await v.blankUntil(stamina,detail,'关闭体力不足弹窗',{x:0.93,y:0.72});

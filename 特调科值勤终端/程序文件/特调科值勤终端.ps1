@@ -1,4 +1,4 @@
-﻿param([string]$PreviewPath)
+param([string]$PreviewPath)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -240,6 +240,9 @@ $form.ClientSize=New-Object System.Drawing.Size(1180,780)
 $form.MinimumSize=New-Object System.Drawing.Size(1196,819)
 $form.MaximumSize=$form.MinimumSize
 $form.BackColor=[System.Drawing.Color]::FromArgb(20,25,30)
+$form.FormBorderStyle='None'
+$form.MinimumSize=New-Object System.Drawing.Size(1180,780)
+$form.MaximumSize=$form.MinimumSize
 $title.Text='特调科执勤终端';$title.Location=New-Object System.Drawing.Point(26,28)
 $title.Font=New-Object System.Drawing.Font('Microsoft YaHei UI',22,[System.Drawing.FontStyle]::Bold)
 $subtitle.Text='SPECIAL INVESTIGATION  /  02.0';$subtitle.Location=New-Object System.Drawing.Point(29,78)
@@ -418,6 +421,21 @@ $timer.Add_Tick({
     } else {
       $statusLabel.Text = '状态：运行失败，请查看日志'
     }
+    if ($code -eq 0 -and -not $script:stopAt) {
+      $fallbackPrefs = Join-Path $root '外部招募降级状态.json'
+      try {
+        if (Test-Path $fallbackPrefs) {
+          $fb = Read-SharedText -Path $fallbackPrefs | ConvertFrom-Json
+          if ($fb.fallbackTriggeredThisRun) {
+            $msg = "本次运行中，外部招募的 OCR 文字识别未能识别到卡池入口，已自动改用「列表降级定位」完成进入。`n`n是否切换为「降级定位」流程？`n`n· 点「是(Y)」：以后每次外部招募都直接采用降级定位（不再先尝试 OCR），更快更稳定。`n· 点「否(N)」：保持现状，每次先尝试 OCR，识别失败时再降级定位。"
+            $answer = [System.Windows.Forms.MessageBox]::Show($msg, '外部招募识别调整', 'YesNo')
+            if ($answer -eq 'Yes') { $preferFallback = 'true' } else { $preferFallback = 'false' }
+            $json = '{"preferFallback":' + $preferFallback + ',"fallbackTriggeredThisRun":false}'
+            [System.IO.File]::WriteAllText($fallbackPrefs, $json, (New-Object System.Text.UTF8Encoding($false)))
+          }
+        }
+      } catch {}
+    }
   }
 })
 $timer.Start()
@@ -435,6 +453,19 @@ $form.Add_FormClosing({
   }
 })
 
+. (Join-Path $root 'sea-page.ps1')
+# —— 无边框：自定义关闭按钮 + 顶部拖动（原生标题栏为浅色，与深色主题不搭，故移除）——
+$appClose=New-Object System.Windows.Forms.Button
+$appClose.Text='×';$appClose.FlatStyle='Flat';$appClose.FlatAppearance.BorderSize=0
+$appClose.BackColor=[System.Drawing.Color]::FromArgb(30,34,40);$appClose.ForeColor=[System.Drawing.Color]::FromArgb(214,96,84)
+$appClose.Font=New-Object System.Drawing.Font('Microsoft YaHei UI',16,[System.Drawing.FontStyle]::Bold)
+$appClose.SetBounds($form.ClientSize.Width-40,6,34,30);$appClose.Cursor='Hand'
+$appClose.Add_Click({$form.Close()})
+$form.Controls.Add($appClose);$appClose.BringToFront()
+$script:seaDrag=$false;$script:seaDragStart=[System.Drawing.Point]::Empty
+$tabs.Add_MouseDown({param($s,$e)if($e.Button-eq'Left'-and$e.Y-le 30){$script:seaDrag=$true;$script:seaDragStart=$e.Location}})
+$tabs.Add_MouseMove({param($s,$e)if($script:seaDrag){$cur=[System.Windows.Forms.Cursor]::Position;$form.Location=New-Object System.Drawing.Point($cur.X-$script:seaDragStart.X,$cur.Y-$script:seaDragStart.Y)}})
+$tabs.Add_MouseUp({param($s,$e)$script:seaDrag=$false})
 if($PreviewPath) {
  $timer.Stop(); $form.ShowInTaskbar=$false; $form.Opacity=0; $form.Show(); [System.Windows.Forms.Application]::DoEvents()
  $form.CreateControl(); function Initialize-PreviewControls($parent) { foreach($child in $parent.Controls) { $null=$child.Handle; if($child.HasChildren){Initialize-PreviewControls $child} } }; Initialize-PreviewControls $form
@@ -443,6 +474,7 @@ if($PreviewPath) {
  $graphics=[System.Drawing.Graphics]::FromImage($bitmap); $origin=$form.PointToClient($logBox.PointToScreen([System.Drawing.Point]::Empty)); $borderX=($form.Width-$form.ClientSize.Width)/2; $borderY=$form.Height-$form.ClientSize.Height-$borderX; $brush=New-Object System.Drawing.SolidBrush($logBox.BackColor); $graphics.FillRectangle($brush,[int]($origin.X+$borderX),[int]($origin.Y+$borderY),$logBox.Width,$logBox.Height); $brush.Dispose(); $brush=New-Object System.Drawing.SolidBrush($logBox.ForeColor); $graphics.DrawString($logBox.Text,$logBox.Font,$brush,[single]($origin.X+$borderX+8),[single]($origin.Y+$borderY+8)); $brush.Dispose(); $graphics.Dispose(); $bitmap.Save($PreviewPath,[System.Drawing.Imaging.ImageFormat]::Png)
  $bitmap.Dispose(); $form.Dispose()
 } else { [void]$form.ShowDialog() }
+
 
 
 
