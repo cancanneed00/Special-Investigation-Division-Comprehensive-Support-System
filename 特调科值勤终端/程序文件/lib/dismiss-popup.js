@@ -57,4 +57,65 @@ async function dismissLevelUp(v, opts = {}) {
   return true;
 }
 
-module.exports = { dismissLevelUp };
+// ---------------------------------------------------------------------------
+// 行动力相关的「快速完成」弹窗。
+//
+// 正常任务流只会用到「次数 + 黄条 + 取消/出发」的标准弹窗；但体力不足时游戏会弹出
+// 它的变体：顶部多一条「行动力道具（行动力不够时自动使用）」和道具格，
+// 此时右下「出发」会**消耗玩家的行动力道具**，属于不可逆操作。
+//
+// 所以：只要看到「行动力道具」这一行，就一律点「取消」退出，绝不点「出发」。
+// 该弹窗也可能在任何体力相关流程的收尾、返回主页途中冒出来，故在 homeReturn 里也做一次清理。
+//
+// 2026-11-18 实测（1280×720 基准）：
+//   「行动力道具（行动力不够时自动使用）」0.976 box[458,160,322,30]
+//   「取消」0.999 box[597,551,55,26]（中心≈624,564）
+//   「出发」0.999 box[861,549,57,30]（绝对不能点）
+const POWER_LABEL = '^行动力道具|行动力不[够足]时自动使用';
+const POWER_LABEL_ROI = [400, 130, 700, 70];
+const QUICK_TITLE_ROI = [150, 80, 320, 70];
+const CANCEL_ROI = [500, 520, 320, 90];
+const CANCEL_POINT = [624, 564];
+
+async function hasPowerDialog(v) {
+  try { return Boolean(await v.ocr(POWER_LABEL, POWER_LABEL_ROI)); } catch (_) { return false; }
+}
+
+async function closeByCancel(v, log, cancel) {
+  let target = cancel || null;
+  if (!target) {
+    try { target = await v.ocr('^取消$', CANCEL_ROI); } catch (_) {}
+  }
+  try {
+    if (target) await v.click(target, '体力弹窗_取消');
+    else await v.click({ detail: { best: { box: [CANCEL_POINT[0], CANCEL_POINT[1], 10, 10] } } }, '体力弹窗_取消兜底');
+  } catch (_) {}
+  // 弹窗退场动画很短；调用方（homeReturn 等）紧接着还会复核一次页面，
+  // 这里只需给出点击后最短的缓冲，别把返回主页的收尾拖长。
+  await new Promise(r => setTimeout(r, 450));
+  return true;
+}
+
+async function cancelPowerDialog(v, opts = {}) {
+  const log = opts.log || console.log;
+  log('检测到「行动力道具」弹窗（体力不足变体），点击取消退出');
+  return closeByCancel(v, log);
+}
+
+// 返回主页等「非正规路径」上的通用清理：遇到「快速完成」弹窗（含体力不足变体，
+// 变体多一条「行动力道具」提示）只点「取消」退出，绝不点「出发」。
+// 注意：正常扫荡弹窗同样带「行动力道具」那一行，所以这里只认「标题 + 取消」，
+// 并仅在 homeReturn 这类非扫荡路径上调用，避免把正常扫荡取消掉。
+async function dismissStaminaPopup(v, opts = {}) {
+  const log = opts.log || console.log;
+  let title = null;
+  try { title = await v.ocr('^快速完成$', QUICK_TITLE_ROI); } catch (_) { return false; }
+  if (!title) return false;
+  let cancel = null;
+  try { cancel = await v.ocr('^取消$', CANCEL_ROI); } catch (_) {}
+  if (!cancel) return false;
+  log('检测到「快速完成」弹窗，点击取消退出（不点出发，避免消耗行动力道具）');
+  return closeByCancel(v, log, cancel);
+}
+
+module.exports = { dismissLevelUp, hasPowerDialog, cancelPowerDialog, dismissStaminaPopup };

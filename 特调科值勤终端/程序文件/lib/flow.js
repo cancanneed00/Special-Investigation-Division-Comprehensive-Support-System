@@ -1,4 +1,5 @@
 const {Vision, sleep} = require('./vision');
+const {dismissStaminaPopup} = require('./dismiss-popup');
 // 游戏网络请求偶发失败时弹出的系统弹窗（“注意：连接未成功，请点击确定重试”），
 // 布局固定：消息居中，右侧金色对号为“确定重试”，左侧为放弃的叉号。
 const CONNECTION_DIALOG={pattern:'.*连接未成功.*',roi:[400,250,480,80],retry:[700,370]};
@@ -65,13 +66,36 @@ class Flow extends Vision {
     return super.dismissReward(expected,{timeout:15000});
   }
   async homeReturn() {
+    // 已经在主页就立刻收工（多数任务收尾走这条路，省一次弹窗识别）。
     if (await this.home()) return;
+    // 体力相关弹窗会盖住主页入口（任务收尾、扫荡退出等路径都可能冒出）。
+    // 这类弹窗的「出发」会消耗玩家的行动力道具，只允许点「取消」退出。
+    if (await dismissStaminaPopup(this)) {
+      await sleep(200);
+      if (await this.home()) return;
+    }
+    // 点「Home」后主页可能过一两秒才被体力弹窗盖住：把清弹窗塞进预期的每一轮探测里，
+    // 否则要白等满「重新识别按钮后重试」的 15 秒兜底（实测一次多耗 20 秒）。
+    const arrived=async()=>{
+      if(await this.home())return true;
+      if(await dismissStaminaPopup(this)){await sleep(200);return await this.home();}
+      return null;
+    };
     try {
-      await this.step(()=>this.template(HOME_TEMPLATES,[0,0,500,130],0.7),()=>this.home(),'Home 返回主界面');
+      // 超时放宽到 6 秒：主页通常 1 秒内确认，但弹窗延迟出现时要留出
+      // 「识别弹窗→点取消→等主页」一整轮（约 2 秒）的余量，避免白跑一次重试。
+      await this.act(async()=>{
+        const btn=await this.template(HOME_TEMPLATES,[0,0,500,130],0.7);
+        if(btn)return btn;
+        // 主页图标也可能被弹窗的变暗遮罩压住导致模板失配：先清掉，等下一轮重新识别。
+        await dismissStaminaPopup(this);
+        return null;
+      },this.connectionGuard(arrived),'Home 返回主界面',{attempts:2,timeout:6000});
       return;
     } catch(error) {
       // 主题皮肤可能重绘了返回主页图标，导致模板全部失配；
       // 此时改用通用返回箭头再退一层，仍回不到主页才把错误抛出去。
+      if (await dismissStaminaPopup(this)) await sleep(300);
       if(await this.home())return;
       try { await this.back(()=>this.home()); return; } catch(inner) {}
       // 两层模板都失配：按 ESC 逐层退出。键盘返回不受皮肤影响，是最后的通用手段。
