@@ -51,7 +51,6 @@ public class DutyResizableForm : Form {
  $script:resizableFormType = 'DutyResizableForm'
 } catch { $script:resizableFormType = $null }
 
-
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $root 'lib\read-shared-text.ps1')
 . (Join-Path $root 'lib\assembly-loader.ps1')
@@ -68,7 +67,7 @@ $script:stopAt = $null
 
 if ($script:resizableFormType) { $form = New-Object DutyResizableForm } else { $form = New-Object System.Windows.Forms.Form }
 $form.Icon = New-Object System.Drawing.Icon((Join-Path $root 'ui-assets\app.ico'))
-$form.Text = '特调科执勤终端 2.2.15'
+$form.Text = '特调科执勤终端 2.2.19'
 $form.StartPosition = 'CenterScreen'
 $form.ClientSize = New-Object System.Drawing.Size(820, 790)
 $form.MinimumSize = New-Object System.Drawing.Size(760, 520)
@@ -514,6 +513,7 @@ $script:seaDrag=$false;$script:seaDragStart=[System.Drawing.Point]::Empty
 $tabs.Add_MouseDown({param($s,$e)if($e.Button-eq'Left'-and$e.Y-le 30){$script:seaDrag=$true;$script:seaDragStart=$e.Location}})
 $tabs.Add_MouseMove({param($s,$e)if($script:seaDrag){$cur=[System.Windows.Forms.Cursor]::Position;$form.Location=New-Object System.Drawing.Point($cur.X-$script:seaDragStart.X,$cur.Y-$script:seaDragStart.Y)}})
 $tabs.Add_MouseUp({param($s,$e)$script:seaDrag=$false})
+
 # 固定坐标布局缩小后的滚动兜底由 sea-page.ps1 挂在各 TabPage 上；
 # 此处只做窗口尺寸按当前屏幕工作区自适应（排除任务栏），避免按钮落在屏幕外。
 try {
