@@ -97,22 +97,33 @@ function parseFirstInteger(text, label) {
 
 async function readOrderCount() {
   // 调令数字只有十几像素，OCR 低置信度时会误读（实测把 3 读成 7，score 仅 0.649），
-  // 目标次数从源头算错会导致后面全部跑偏。故：低于 0.85 的读数直接丢弃，
-  // 且必须两次高分读数一致才采信；拿不到一致结果就安全停止，不带着错值继续跑。
+  // 目标次数从源头算错会导致后面全部跑偏。故：
+  //   1) 先用大字标题「危机行动调令」（识别稳定 0.99）定位卡片，缩小数字搜索范围；
+  //   2) 在标题正下方裁出数字区域并放大 4 倍再 OCR，把低置信度从根上拉回来；
+  //   3) 仍要求 ≥0.85 且两次一致才采信，拿不到一致结果就安全停止，不带着错值继续跑。
   const seen = new Map();
   for (let i = 0; i < 12; i++) {
-    const reco = await ocr("^[0-9]+$", [220, 405, 270, 100], {
+    let roi = null;
+    const title = await ocr("危机.*调令", [200, 395, 320, 120], {
       attempts: 1,
-      delay: 500,
-      orderBy: "Area",
+      delay: 400,
+      orderBy: "Score",
     });
-    const best = reco && reco.detail && reco.detail.best;
+    if (title && title.detail && title.detail.best) {
+      const [tx, ty, tw, th] = title.detail.best.box;
+      roi = [tx, ty + th - 3, Math.max(40, Math.min(tw + 20, 110)), 50];
+    } else {
+      // 标题定位失败，退回到历史固定区域放大识别
+      roi = [220, 405, 270, 100];
+      log("危机行动调令标题定位失败，回退固定区域放大识别", { i });
+    }
+    const best = await vision.recognizeScaled("^[0-9]+$", roi, 4);
     if (best && best.score >= 0.85) {
       const value = parseFirstInteger(best.text, "危机行动调令数量");
       const hits = (seen.get(value) || 0) + 1;
       seen.set(value, hits);
       if (hits >= 2) {
-        log("危机行动调令数量", value);
+        log("危机行动调令数量", value, { score: best.score, scaled: true });
         return { count: value, box: best.box };
       }
     } else if (best) {

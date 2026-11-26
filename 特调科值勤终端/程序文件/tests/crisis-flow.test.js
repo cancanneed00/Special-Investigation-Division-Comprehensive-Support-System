@@ -15,6 +15,12 @@ function scenario(orders){
   const labels=state==='home'?[]:state==='system'?[String(orders),'危机行动调令']:state==='stage'?['快速完成',...(swipes?['S303 乐园梦魇III']:[]),...(selected?['乐园梦魇III']:[])]:state==='modal'?[quantity+'次','出发']:state==='result'?['快速完成结果','确定']:[];
   const text=labels.find(t=>new RegExp(p.expected).test(t));return text?reco(text):null;
  };
+ v.recognizeScaled=async(expected,roi,scale)=>{
+  clock+=100;
+  if(state!=='system')return null;
+  const r=reco(String(orders));
+  return {text:String(orders),score:.99,box:r.detail.best.box};
+ };
  v.homeButton=async key=>{assert.equal(state,'home');assert.equal(key,'system');return reco('system');};v.home=async()=>state==='home';
  v.click=async r=>{
   const text=[...boxes].find(([,b])=>JSON.stringify(b)===JSON.stringify(r.detail.best.box))?.[0];assert.ok(text);actions.push(text);

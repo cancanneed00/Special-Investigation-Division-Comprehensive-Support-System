@@ -95,6 +95,27 @@ class Vision {
     return result;
   }
   ocr(expected, roi = FULL) { return this.recognize('OCR', {expected, roi, order_by:'Vertical'}); }
+  // 把 roi 区域从整帧裁出并最近邻放大后交给 MAA OCR，返回映射回原图坐标的最优结果。
+  // 游戏里的小字号数字（十几像素）整帧识别时 det/rec 置信度会掉到 0.1x，放大后能恢复到 0.9x。
+  async recognizeScaled(expected, roi, scale = 4) {
+    this.s.check();
+    const image = await this.capture();
+    const { cropScale } = require('./image-scale');
+    const scaled = cropScale(Buffer.from(image), roi, scale);
+    const ab = scaled.buffer.buffer.slice(scaled.buffer.byteOffset, scaled.buffer.byteOffset + scaled.buffer.byteLength);
+    const job = await this.s.tasker.post_recognition('OCR', {
+      expected,
+      roi: [0, 0, scaled.width, scaled.height],
+      order_by: 'Score',
+    }, ab).wait();
+    const result = await job.get();
+    const node = result && result.nodes && result.nodes[0] ? this.s.tasker.node_detail(result.nodes[0]) : null;
+    const reco = node && node.reco ? node.reco : null;
+    const best = reco && reco.hit && reco.detail && reco.detail.best ? reco.detail.best : null;
+    if (!best) return null;
+    const [bx, by, bw, bh] = best.box;
+    return { ...best, box: [roi[0] + bx / scale, roi[1] + by / scale, bw / scale, bh / scale] };
+  }
   template(template, roi = FULL, threshold = 0.78) {
     return this.recognize('TemplateMatch', {template, roi, threshold});
   }
