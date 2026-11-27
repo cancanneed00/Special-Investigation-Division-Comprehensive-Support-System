@@ -96,38 +96,82 @@ function parseFirstInteger(text, label) {
 }
 
 async function readOrderCount() {
-  // 调令数字只有十几像素，OCR 低置信度时会误读（实测把 3 读成 7，score 仅 0.649），
-  // 目标次数从源头算错会导致后面全部跑偏。故：
-  //   1) 先用大字标题「危机行动调令」（识别稳定 0.99）定位卡片，缩小数字搜索范围；
-  //   2) 在标题正下方裁出数字区域并放大 4 倍再 OCR，把低置信度从根上拉回来；
-  //   3) 仍要求 ≥0.85 且两次一致才采信，拿不到一致结果就安全停止，不带着错值继续跑。
+  // 调令数字只有十几像素，单一 ROI/放大倍数无法覆盖 0–6：
+  //   实测 5x 能把「2」读到 0.995，但同一套参数下「1」直接检测不到；
+  //   3x 的紧 ROI 能把「1」读到 0.97，宽 ROI 对 0/2/3/4/5/6 更稳。
+  // 因此并行走 6 套互补配置（整帧/裁剪 × 3x/5x/8x），只接受 0–6，
+  // 取至少 2 套一致的读数（或单套 ≥0.95）；数字 0 是安全结果（只返回主页、不点任何按钮），
+  // 且真机实测放大后反而更难识别（6 路里仅整帧宽 ROI 读到 0.945），故对 0 放宽到 ≥0.90。
+  // 最后仍要求连续两次结果相同，避免偶发误读。
+  // 注意：MAA 的 OCR 不支持 order_by:'Score'，传了会让 pipeline 解析失败、
+  // 识别根本不执行（真机 12 次全部落空）。这里所有探测都不传 order_by。
   const seen = new Map();
   for (let i = 0; i < 12; i++) {
-    let roi = null;
     const title = await ocr("危机.*调令", [200, 395, 320, 120], {
       attempts: 1,
       delay: 400,
-      orderBy: "Score",
     });
+    let tx = 252, ty = 424, tw = 122, th = 22;
     if (title && title.detail && title.detail.best) {
-      const [tx, ty, tw, th] = title.detail.best.box;
-      roi = [tx, ty + th - 3, Math.max(40, Math.min(tw + 20, 110)), 50];
+      [tx, ty, tw, th] = title.detail.best.box;
     } else {
-      // 标题定位失败，退回到历史固定区域放大识别
-      roi = [220, 405, 270, 100];
-      log("危机行动调令标题定位失败，回退固定区域放大识别", { i });
+      log("危机行动调令标题定位失败，回退固定卡片位置", { i });
     }
-    const best = await vision.recognizeScaled("^[0-9]+$", roi, 4);
-    if (best && best.score >= 0.85) {
-      const value = parseFirstInteger(best.text, "危机行动调令数量");
-      const hits = (seen.get(value) || 0) + 1;
-      seen.set(value, hits);
-      if (hits >= 2) {
-        log("危机行动调令数量", value, { score: best.score, scaled: true });
-        return { count: value, box: best.box };
+    const tight = [tx - 7, ty + th - 1, 60, 35];
+    const wide = [238, 405, 195, 70];
+    const derived = [tx, ty + th - 3, Math.max(40, Math.min(tw + 20, 110)), 50];
+    const expected = "^[0-6]$";
+    const probes = [
+      ["整帧紧ROI", async () => {
+        const r = await vision.recognize("OCR", { expected, roi: tight });
+        return r && r.detail ? r.detail.best || null : null;
+      }],
+      ["紧ROI放大3x", async () => vision.recognizeScaled(expected, tight, 3)],
+      ["整帧宽ROI", async () => {
+        const r = await vision.recognize("OCR", { expected, roi: wide });
+        return r && r.detail ? r.detail.best || null : null;
+      }],
+      ["宽ROI放大5x", async () => vision.recognizeScaled(expected, wide, 5)],
+      ["标题ROI放大3x", async () => vision.recognizeScaled(expected, derived, 3)],
+      ["标题ROI放大8x", async () => vision.recognizeScaled(expected, derived, 8)],
+    ];
+    const votes = new Map();
+    const readings = [];
+    for (const [name, probe] of probes) {
+      try {
+        const best = await probe();
+        if (!best) { readings.push(`${name}=null`); continue; }
+        const match = String(best.text || "").match(/^[0-6]$/);
+        if (!match) { readings.push(`${name}="${best.text}"`); continue; }
+        const value = Number(match[0]);
+        readings.push(`${name}=${value}(${Number(best.score).toFixed(3)})`);
+        if (Number(best.score) >= 0.80) {
+          const entry = votes.get(value) || { n: 0, best: 0, box: best.box };
+          entry.n += 1;
+          if (Number(best.score) > entry.best) { entry.best = Number(best.score); entry.box = best.box; }
+          votes.set(value, entry);
+        }
+      } catch (error) {
+        readings.push(`${name}=ERR(${error.message})`);
       }
-    } else if (best) {
-      log("调令读数置信度低，丢弃", { text: best.text, score: best.score });
+    }
+    const ranked = [...votes.entries()].sort((a, b) => b[1].n - a[1].n || b[1].best - a[1].best);
+    let chosen = null;
+    if (ranked.length) {
+      const top = ranked[0];
+      // 0 只回主页不点任何按钮，误判代价最低；单票门槛放宽到 0.90，
+      // 让真机「整帧宽 ROI 单路 0.945」这种形态也能采信。非 0 仍维持 0.95。
+      const minScore = top[0] === 0 ? 0.90 : 0.95;
+      if (top[1].n >= 2 || top[1].best >= minScore) chosen = top[0];
+    }
+    log("调令读数", readings.join(" | "), { votes: [...votes], chosen });
+    if (chosen !== null) {
+      const hits = (seen.get(chosen) || 0) + 1;
+      seen.set(chosen, hits);
+      if (hits >= 2) {
+        log("危机行动调令数量", chosen, { consensus: true });
+        return { count: chosen, box: ranked[0][1].box };
+      }
     }
     await sleep(400);
   }
@@ -157,7 +201,9 @@ async function findAndSelectS303() {
 }
 
 async function readQuickCount(attempts = 12) {
-  const reco = await ocr(".*[0-9]+次.*", [500, 315, 470, 150], {
+  // 真机实测：次数变化时 OCR 会读成「快速完成次数2 次」（数字和「次」之间多一个空格），
+  // 旧的 .*[0-9]+次.* 会因为空格过滤掉这条唯一结果，导致加减次数后读不到当前次数。
+  const reco = await ocr(".*[0-9]+\\s*次.*", [500, 315, 470, 150], {
     attempts,
     delay: 400,
     orderBy: "Expected",
@@ -275,7 +321,7 @@ async function run(session,{createVision=s=>new Vision(s)}={}) {
   vision = createVision(session);
 
   await capture(IMAGE_FILE);
-  const interruptedModal = await ocr(".*[0-9]+次.*", [500, 315, 470, 150], {
+  const interruptedModal = await ocr(".*[0-9]+\\s*次.*", [500, 315, 470, 150], {
     attempts: 2,
     delay: 300,
   });

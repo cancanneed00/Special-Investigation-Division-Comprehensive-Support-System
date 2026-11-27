@@ -103,10 +103,11 @@ class Vision {
     const { cropScale } = require('./image-scale');
     const scaled = cropScale(Buffer.from(image), roi, scale);
     const ab = scaled.buffer.buffer.slice(scaled.buffer.byteOffset, scaled.buffer.byteOffset + scaled.buffer.byteLength);
+    // MAA 的 OCR 识别器不支持 order_by（传 'Score' 会让 pipeline 解析失败、
+    // 识别根本不执行），这里绝不传 order_by；expected 已足够筛出纯数字。
     const job = await this.s.tasker.post_recognition('OCR', {
       expected,
       roi: [0, 0, scaled.width, scaled.height],
-      order_by: 'Score',
     }, ab).wait();
     const result = await job.get();
     const node = result && result.nodes && result.nodes[0] ? this.s.tasker.node_detail(result.nodes[0]) : null;
